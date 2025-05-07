@@ -11,8 +11,7 @@ for file in /scratch/general/nfs1/u6000989/LycLotis/*.bam; do
 done
 
 file="/scratch/general/nfs1/u6000989/LycLotis/dedup_BAT20.bam"
-output="/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
-/filtered_dedup_BAT20.bam"
+output="/scratch/general/nfs1/u6000989/LycLotis/filtered_dedup_BAT20.bam"
 samtools view -h "$file" | awk 'length($10) >= 50 || $1 ~ /^@/' | samtools view -Sb - > "$output"
 
 MapDamFork.pl
