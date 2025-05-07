@@ -1,0 +1,56 @@
+##using mapdamage on aligned reads to assess if aDNA is legit or contaminated. Data needs to be filtered before before 
+##being run through md to eliminate noise. Using mapfork to parrellelize in perl script
+
+
+NEED TO FILTER OFF ENDS FIRST WHERE IS THAT CODE
+
+for file in /scratch/general/nfs1/u6000989/LycLotis/*.bam; do
+    output="/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
+/filtered_$(basename $file)"
+    samtools view -h "$file" | awk 'length($10) >= 50 || $1 ~ /^@/' | samtools view -Sb - > "$output"
+done
+
+file="/scratch/general/nfs1/u6000989/LycLotis/dedup_BAT20.bam"
+output="/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
+/filtered_dedup_BAT20.bam"
+samtools view -h "$file" | awk 'length($10) >= 50 || $1 ~ /^@/' | samtools view -Sb - > "$output"
+
+MapDamFork.pl
+#!/usr/bin/perl
+#
+# run mapdamage
+#
+
+
+use Parallel::ForkManager;
+my $max = 12;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_result";
+        print "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        system "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+
+
+then:
+
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert
+#SBATCH --partition=kingspeak
+#SBATCH --job-name=Lotismapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
+
+perl MapDamFork.pl /scratch/general/nfs1/u6000989/LycLotis/*bam
+
