@@ -2,24 +2,29 @@
 ##being run through md to eliminate noise. Using mapfork to parrellelize in perl script
 
 
-NEED TO FILTER OFF ENDS FIRST WHERE IS THAT CODE
+NEED TO FILTER OFF ENDS FIRSt
 
-for file in /scratch/general/nfs1/u6000989/LycLotis/*.bam; do
-    output="/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
-/filtered_$(basename $file)"
-    samtools view -h "$file" | awk 'length($10) >= 50 || $1 ~ /^@/' | samtools view -Sb - > "$output"
-done
+
+cp FilterFork.pl /scratch/general/nfs1/u6000989/LycLotis/
+
+
 
 file="/scratch/general/nfs1/u6000989/LycLotis/dedup_BAT20.bam"
 output="/scratch/general/nfs1/u6000989/LycLotis/filtered_dedup_BAT20.bam"
 samtools view -h "$file" | awk 'length($10) >= 50 || $1 ~ /^@/' | samtools view -Sb - > "$output"
+            ###samtools view h file- for the computer to read the file and h ensures the header of the bam is included in the output
+            ###| awk 'length($10) >= 50 || $1 ~ /^@/' | pipeline (output is used as next input)
+            ### 10 is the 10th field (sequence of the read in this case, aligned to the reference) and checking for reads larger than 50bp
+            ###  $1 ~ /^@/'- keeps all lines that start with @ (headers) in sam file. ^@ ensures header info is preserved
+module load samtools
+perl FilterFork.pl dedup_*bam
 
 MapDamFork.pl
 #!/usr/bin/perl
 #
 # run mapdamage
 #
-
+perl MapDamFork.pl *filtered_*.bamjob
 
 use Parallel::ForkManager;
 my $max = 12;
@@ -52,6 +57,8 @@ then:
 cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
 
 perl MapDamFork.pl /scratch/general/nfs1/u6000989/LycLotis/*bam
+
+
 
 
 
