@@ -59,6 +59,42 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/00_Alignment/01_mapdamage
 perl MapDamFork.pl /scratch/general/nfs1/u6000989/LycLotis/*bam
 
 
+###using ngsutils bamutils filter to refilter bams because filtering after mapdamage truncated the files
+##local install from chpc people, downloaded on via conda too (probaboly didn't need to)
+
+module load ngsutils
+bamutils (command)
+bamutils filter, minlen, mapped, etc
+
+##to test one
+bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -minlen 50
+
+##to parellelize 
+FilteredEndReads.pl
+
+#!/usr/bin/perl
+#
+# filter mapdamage reads (in Zachs LycLotis)
+#
+
+
+use Parallel::ForkManager;
+my $max = 12;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filtered";
+        print "bamutils filter -bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -m$
+        system "bamutils filter -bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -$
+        $pm->finish;
+}
+$pm->wait_all_children;
+
+
+
 
 
 
