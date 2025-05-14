@@ -67,7 +67,9 @@ bamutils (command)
 bamutils filter, minlen, mapped, etc
 
 ##to test one
-bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -minlen 50
+bamutils filter dedup_BATasdad20.bam filtered_BAT20.bam -mapped -minlen 50
+bamutils filter dedup_LOTIS.bam filtered_LOTIS.bam -mapped -minlen 50
+
 
 ##to parellelize 
 FilteredEndReads.pl
@@ -76,6 +78,8 @@ FilteredEndReads.pl
 #
 # filter mapdamage reads (in Zachs LycLotis)
 #
+##use .sh script to submit as batch job
+
 
 
 use Parallel::ForkManager;
@@ -86,12 +90,32 @@ foreach $file (@ARGV){
         $pm->start and next; ## fork
         $file =~ m/_([a-zA-Z0-9]+)\.bam/;
         $id = $1;
-        $out = "output_$id"."_filtered";
-        print "bamutils filter -bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -m$
-        system "bamutils filter -bamutils filter dedup_BAT20.bam filtered_BAT20.bam -mapped -$
+        $out = "output_$id"."_filtered.bam";
+        print "bamutils filter $file $out -mapped -minlen 50\n";
+        system "bamutils filter $file $out -mapped -minlen 50\n";
         $pm->finish;
 }
 $pm->wait_all_children;
+
+###sh script for submission:
+(base) [u6047808@kingspeak2:LycLotis]$ cat RunFilter.sh 
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=16
+#SBATCH --account=gompert
+#SBATCH --partition=kingspeak
+#SBATCH --job-name=filter
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load ngsutils
+
+cd /scratch/general/nfs1/u6000989/LycLotis
+
+perl FilterEndReads.pl dedup_*bam
+
+
 
 
 
