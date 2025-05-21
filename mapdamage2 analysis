@@ -115,12 +115,32 @@ cd /scratch/general/nfs1/u6000989/LycLotis
 
 perl FilterEndReads.pl dedup_*bam
 
+##filtered mapdamage run did not have filtered data. check what is in the files, convert BAM to SAM and compare 
+##filtered and unfiltered files. If all checks out, just run one, line by line
+
+To check what is in the files:
+samtools view output_LOTIS_filtered.bam | awk '{print length($10)}' | sort | uniq -c
+samtools view dedup_LOTIS.bam | awk '{print length($10)}' | sort | uniq -c
+samtools flagstat output_LOTIS_filtered.bam
+samtools flagstat dedup_LOTIS.bam
+
+
+To convert BAM to SAM:
+
+samtools view -h -o outputSAMLotis.sam output_LOTIS_filtered.bam
+samtools view -h -o outputdedupSAMLotis.sam dedup_LOTIS.bam
+
+
+
+chaimaric reads..? if nothing on that first mode inclined to get rid of them to eliminate noise. can bamutils filter based on cigar string. if not find one or write script using samtools..?
+soft clipping short fragments- trust them or get them out?
+variant call- maybe redo if getting rid of short fragments
+filter snps using perl to 
+filter to get rid of ga and ct snps 
 
 
 
 
-
-
-
+find euphiloites genome close as i can get 
 
 
