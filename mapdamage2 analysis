@@ -3,10 +3,9 @@
 
 
 NEED TO FILTER OFF ENDS FIRSt
+All in: /scratch/general/nfs1/u6000989/LycLotis/
 
-
-cp FilterFork.pl /scratch/general/nfs1/u6000989/LycLotis/
-
+cp FilterFork.pl 
 
 
 file="/scratch/general/nfs1/u6000989/LycLotis/dedup_BAT20.bam"
@@ -118,17 +117,80 @@ perl FilterEndReads.pl dedup_*bam
 ##filtered mapdamage run did not have filtered data. check what is in the files, convert BAM to SAM and compare 
 ##filtered and unfiltered files. If all checks out, just run one, line by line
 
+##Decided mapdamage was mislabelling x-axis (read length) and instead we need to find the differentiation between 
+##soft-clipped reads and bases between filtered samples. 
+
+
+
+
 To check what is in the files:
 samtools view output_LOTIS_filtered.bam | awk '{print length($10)}' | sort | uniq -c
 samtools view dedup_LOTIS.bam | awk '{print length($10)}' | sort | uniq -c
 samtools flagstat output_LOTIS_filtered.bam
 samtools flagstat dedup_LOTIS.bam
-
-
+## this confirmed that filtering did indeed work
+## now we need to find how many soft clipped bases vs soft clipped reads we have
 To convert BAM to SAM:
 
 samtools view -h -o outputSAMLotis.sam output_LOTIS_filtered.bam
 samtools view -h -o outputdedupSAMLotis.sam dedup_LOTIS.bam
+
+To parallelize them: Sam2Bam.pl (really Bam to Sam lol)
+Ran it interactively. To run as a batch job make .sh script. 
+
+#!/usr/bin/perl
+#
+# alignment with bwa mem 
+#
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+FILES:
+foreach $bam (@ARGV){
+        $pm->start and next FILES; ## fork
+        $out = $bam;
+        $out =~ s/bam/sam/ or die "failed sub here: $out\n";
+        system "samtools view -h -o $out $bam\n";
+        $pm->finish;
+}
+
+$pm->wait_all_children;
+
+##Zach wrote a perl script to count soft clipped info
+CountSoftClip.pl
+## Have a .sh script to run job as a batch job
+
+Softclip.sh
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=30
+#SBATCH --account=gompert
+#SBATCH --partition=kingspeak
+#SBATCH --job-name=Softclip
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load perl
+cd /scratch/general/nfs1/u6000989/LycLotis
+
+for file in output_*filtered.sam; do
+        output="${file%.sam}.txt" ##sam to txt for the output
+        perl CountSoftClip.pl $file > $output
+done
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -141,6 +203,6 @@ filter to get rid of ga and ct snps
 
 
 
-find euphiloites genome close as i can get 
+find euphiloites genome close as i can get- turned out to be Alexis. Making own ref?
 
 
