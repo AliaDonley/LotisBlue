@@ -183,9 +183,37 @@ done
 
 
 
+##BAT20-Found 2402181319 soft-clipped bases
+87583107 out of 606359718 sequences contained at least one soft-clipped base
+            *27.43, 3.96
 
+##BAT49-Found 1163270266 soft-clipped basesq
+24421345 out of 30929439 sequences contained at least one soft-clipped base
+            *47.63, 37.61
 
+##BTB20- Found 1961594895 soft-clipped bases
+79537401 out of 543127519 sequences contained at least one soft-clipped base
+            *24.66, 3.61
 
+##BTB22- Found 2393890604 soft-clipped bases
+87137806 out of 608466465 sequences contained at least one soft-clipped base
+            *27.47, 3.93
+
+##EP19-Found 2371864473 soft-clipped bases
+86615692 out of 559559027 sequences contained at least one soft-clipped base
+            *27.38, 4.24
+
+##LOTIS-Found 2966775684 soft-clipped bases
+66399123 out of 89984602 sequences contained at least one soft-clipped base
+            *44.68, 32.97
+
+##MOR52-Found 4007208122 soft-clipped bases
+101057735 out of 139788465 sequences contained at least one soft-clipped base
+            *39.65, 28.67
+
+##YP20-Found 2468626572 soft-clipped bases
+88875352 out of 557103632 sequences contained at least one soft-clipped base
+            *27.78, 4.43
 
 
 
