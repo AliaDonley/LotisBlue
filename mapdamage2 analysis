@@ -186,44 +186,44 @@ done
 ##BAT20-Found 2402181319 soft-clipped bases
 87583107 out of 606359718 sequences contained at least one soft-clipped base
             *27.43, 3.96
+14%
 
 ##BAT49-Found 1163270266 soft-clipped basesq
 24421345 out of 30929439 sequences contained at least one soft-clipped base
             *47.63, 37.61
+79%
 
 ##BTB20- Found 1961594895 soft-clipped bases
 79537401 out of 543127519 sequences contained at least one soft-clipped base
             *24.66, 3.61
-
+14.6%
 ##BTB22- Found 2393890604 soft-clipped bases
 87137806 out of 608466465 sequences contained at least one soft-clipped base
             *27.47, 3.93
-
+14%
 ##EP19-Found 2371864473 soft-clipped bases
 86615692 out of 559559027 sequences contained at least one soft-clipped base
             *27.38, 4.24
-
+15%
 ##LOTIS-Found 2966775684 soft-clipped bases
 66399123 out of 89984602 sequences contained at least one soft-clipped base
             *44.68, 32.97
-
+74%
 ##MOR52-Found 4007208122 soft-clipped bases
 101057735 out of 139788465 sequences contained at least one soft-clipped base
             *39.65, 28.67
-
+72%
 ##YP20-Found 2468626572 soft-clipped bases
 88875352 out of 557103632 sequences contained at least one soft-clipped base
             *27.78, 4.43
+16%
 
 
 
 
+##waiting for zach to write the script for a new filtering of softclipped fragments, not bases.
 
 
-
-
-chaimaric reads..? if nothing on that first mode inclined to get rid of them to eliminate noise. can bamutils filter based on cigar string. if not find one or write script using samtools..?
-soft clipping short fragments- trust them or get them out?
 variant call- maybe redo if getting rid of short fragments
 filter snps using perl to 
 filter to get rid of ga and ct snps 
