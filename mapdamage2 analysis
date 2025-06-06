@@ -222,6 +222,8 @@ done
 
 
 ##waiting for zach to write the script for a new filtering of softclipped fragments, not bases.
+##Script called FilterSoftClip.pl
+
 
 
 variant call- maybe redo if getting rid of short fragments
