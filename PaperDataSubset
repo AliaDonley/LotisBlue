@@ -1,0 +1,74 @@
+##Softclipping Counting and Filtering of Real Dataset
+
+##Counting Softclipping for real dataset
+c
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##Mapdamage on Real Dataset 
+
+##MapDamFork.pl
+#!/usr/bin/perl
+#
+# run mapdamage
+#
+
+
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filteredMapDamage";
+        print "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        system "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+
+
+##Run by SubMapDamFork.sh
+
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=25
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=xercesmapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load perl
+module load samtools
+module load bwa
+
+cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
+
+perl MapDamFork.pl *bam
