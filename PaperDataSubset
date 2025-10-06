@@ -72,3 +72,163 @@ module load bwa
 cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
 
 perl MapDamFork.pl *bam
+
+
+
+
+
+
+
+
+##RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET)
+##I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
+##USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+
+##VARIANT CALLING
+
+
+##DIDN'T HAVE THE INDEXED BAI FILES, NEEDED TO INDEX USING THIS SCRIPT: 
+Index.sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=Indexing
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+
+for bam in *.bam
+do 
+echo "Indexing $bam..."
+samtools index "$bam"
+done
+
+##RAN THE FOLLOWING SUBMISSION SCRIPT
+VariantCall.sh
+
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VC_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VariantCall.pl chrom*list
+
+##WHICH RAN
+VariantCall.pl
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+foreach $chrom (@ARGV){
+        $pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+        $out = "o_lycpool_chrom$1";
+        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+
+##THIS SPIT OUT O_LYCPOOL_CHROM#.VCF FILES THAT WILL BE FILTERED THROUGH GATK USING THIS SUBMISSION SCRIPT:
+##VarFiltFork2.sh:
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VarFilt
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VarFiltFork2.pl
+
+
+##Which Runs:
+##VarFiltFork2.pl
+
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacB$
+
+foreach $chrom (@ARGV){
+        $pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+        $out = "o_lycpool_chrom$1";
+        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD $
+        $pm->finish;
+
+}
+$pm->wait_all_children;
+
+
+###Next, extract allele depths from filtered vcf files. Also drops indels and multiallelic data. This gives ad1 and ad2
+Called AD.sh
+
+
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering 
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out   
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+
+
+
+
+
+
+
