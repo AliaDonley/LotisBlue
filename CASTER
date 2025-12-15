@@ -1,0 +1,13 @@
+##Install Caster site and pair
+scp ~/Downloads/"ASTER-Linux.zip" u6047808@kingspeak.chpc.utah.edu:/uufs/chpc.utah.edu/common/home/u6047808/
+
+##remove paralogous alignment regions using repeat masker or similar (GATK?)
+
+##input should be a single msa or fasta
+
+
+##output is a netwick format and gives:
+  -species tree topology
+  -branch supports measured as local bootstrap support (>95 good)
+  -can also annotate branches with other quantities like quartet scores and local bootstraps for all 3 topologies
+
