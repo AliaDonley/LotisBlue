@@ -232,3 +232,404 @@ done
 
 
 
+
+
+
+
+
+
+
+### SECOND RUN AFTER SCRATCH SPACE WAS WIPED ###### Lotis Revival babe
+
+##All bam and bai index files are in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+##Indexed bam files using
+
+Index.sh
+
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=Indexingbai
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+for bam in *.bam
+do 
+echo "Indexing $bam..."
+samtools index "$bam"
+done
+
+##Needed to Filter ends for mapdamage. Ran using:
+
+FilterFork.sh
+
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=gompert
+#SBATCH --partition=kingspeak
+#SBATCH --job-name=filter
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis 
+
+for bam in *.bam; do
+  base=$(basename "$bam" .bam)
+  out="${base}.filtered${minlen}.bam"
+
+
+  samtools view -h "$bam" \
+    | awk -v m="$minlen" '($1 ~ /^@/) || (length($10) >= 50)' \
+    | samtools view -b -o "$out" -
+
+  samtools index "$out"
+done
+
+##tried using perl script but gave up. 
+
+##Ran MapDamage on all populations using 
+
+##MapDamFork.pl
+#!/usr/bin/perl
+#
+# run mapdamage
+#
+
+
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filteredMapDamage";
+        print "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        system "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+
+
+#########################################3#Run by SubMapDamFork.sh
+
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=25
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=xercesmapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load perl
+module load samtools
+module load bwa
+
+cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
+
+perl MapDamFork.pl *bam
+
+
+###############################################33######################Variant Calling###################################333333######################333
+####Make a folder containing all bams
+#### Had to make the folder with all the full paths to the bams. Left the index files (.bai) in the main directories 
+
+ls -1 *.bam > bams
+head bams
+
+### Run Variant calling on all bams with 
+VariantCall.pl
+
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+
+use Parallel::ForkManager;
+my $max = 24;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+foreach $chrom (@ARGV){
+        $pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+        $out = "o_lycpool_chrom$1";
+        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+
+#output: o_lycpool_chrom*.vcf
+
+###########################3333###Submitted with:SubVariantCall.sh
+##chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside
+##chrom1.list-chrom23.list
+
+
+#!/bin/sh
+#SBATCH --time=13:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VC_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
+
+
+
+###########################3#### filtered the vcf file with GATK version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3. Using:
+####################3###VarFiltFork2.pl
+
+#!/usr/bin/perl
+#
+# filter vcf with GATK and tabix 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+
+
+my $ref = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+my $gatk = "/uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar"; 
+
+
+foreach $vcf (@ARGV){
+        $pm->start and next; ## fork
+        $in = $vcf; ##don't need to gunzip here..?
+        $in =~ s/\.gz//; ## drops .gz from the filename
+        $o = "fff_$vcf"; ## outfile with name fff_xxxx.vcf.gz ##if not zipped, switch variable to $in      
+
+        system "~/bin/tabix $vcf\n"; ##tabix needs bgzipped (should be .gz)
+        system "bgzip -d $vcf\n"; ## unzipe file- correct
+        
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar IndexFeatureFile -I $in\n";
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar VariantFiltration -R $ref -V $in -O $o --filter-name \"bqbz\" --filter-expression \"BQBZ > 3.0 || BQBZ < -3.0\" --filter-name \"mqbz\" --filter-expression \"MQBZ > 3.0 || MQBZ < -3.0\" --filter-name \"rpbz\" --filter-expression \"RPBZ > 3.0 || RPBZ < -3.0\" --filter-name \"depth\" --filter-expression \"DP < 1350\" --filter-name \"mapping\" --filter-expression \"MQ < 30\" --verbosity ERROR\n";
+        system "bgzip -d $o\n";
+
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+
+
+#output: fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi
+
+###Run by SubVarFiltFork2.sh
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VarFilt
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
+
+
+
+
+################ I extracted the allele depths (count of each allele for each SNP) from the filtered vcf files. This script also drops INDELS and multiallelic data
+################Used: AD.sh
+
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+
+##output: ad1_fff_o_lycpool_chrom*.txt and ad2_fff_o_lycpool_chrom*.txt for each chromosome 
+
+
+###############This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
+
+################I also grapped the SNP information (alleles) using SNP.sh
+
+#!/usr/bin/bash
+#
+# extract alleles from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is snps_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > snps_$out &
+done
+
+##output: snps_fff_o_lycpool_chrom*.txt
+
+#####################################################POPULATION GENETIC STRUCTURE FINALLY BITCH########################################################
+
+#####PCA and FST in R on chpc
+
+getwd()
+setwd()
+
+library(data.table)
+
+a1f<-list.files(pattern="ad1_fff")
+a2f<-a1f
+a2f<-gsub("ad1","ad2",a2f)
+N<-length(a1f)
+ids<-read.table("IDs.txt",header=FALSE)
+temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
+chrom<-gsub(".txt","",temp)
+reps<-grep(pattern="rep",ids[,1])
+
+
+
+pdf("WG_LG_PCAs.pdf",width=7,height=10.5)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5.5,2.5,1.5))
+cl<-1.3;ca<-1.1;cm<-1.4
+for(i in 1:N){
+	a1<-as.matrix(fread(a1f[i],header=F))
+	a2<-as.matrix(fread(a2f[i],header=F))
+	n<-a1+a2
+	p<-a2/(a1+a2) ## non-ref
+
+	p[is.na(p)]<-0.001
+	## pca
+	pc<-prcomp(t(p[,-c(reps,17)]),center=TRUE,scale=FALSE) ## drop replicates and MEN12
+	o<-summary(pc)
+	pct<-round(o$importance[2,1:3] * 100,1)
+
+	plot(pc$x[,1],pc$x[,2],pch=rep(15:20,each=7),col=ids[-c(reps,17),2],xlab=paste("PC1 (",pct[1],")"),ylab=paste("PC2 (",pct[2],")"),cex.lab=cl,cex.axis=ca)
+	title(main=paste("Chromosome ",chrom[i],sep=""),cex.main=cm)
+	text(pc$x[,1],pc$x[,2],ids[-c(reps,17),1],cex=.7)
+	xa<-min(pc$x[,1]) * .9
+	ya<-pc$x[22,2] * .9
+	#if(ya > 0){
+	#	legend(xa,ya,ids[,1],pch=rep(15:20,each=7),col=ids[,2],ncol=3,cex=.6)
+	#}
+	plot(pc$x[,1],pc$x[,3],pch=rep(15:20,each=7),col=ids[-c(reps,17),2],xlab=paste("PC1 (",pct[1],")"),ylab=paste("PC3 (",pct[3],")"),cex.lab=cl,cex.axis=ca)
+	title(main=paste("Chromosome ",chrom[i],sep=""),cex.main=cm)
+	text(pc$x[,1],pc$x[,3],ids[-c(reps,17),1],cex=.7)
+
+}
+dev.off()
+##view file in directory in chpc with xdg-open
+
+############FST###########
+
+P<-vector("list",24)
+n<-vector("list",24)
+H<-vector("list",24)
+for(i in 1:N){
+	a1<-as.matrix(fread(a1f[i],header=F))
+	a2<-as.matrix(fread(a2f[i],header=F))
+	n[[i]]<-a1+a2
+	P[[i]]<-a2/(a1+a2) ## non-ref
+	H[[i]] <- 2 * P[[i]] * (1 - P[[i]])
+
+}
+
+##getting the error that p does not exist, so switched that last line to just spell out the entire variable 
+
+
+
+##Can't get FST to run, just getting killed. Will come back to. 
+
+
+#######################################Caster############################################################
+
+###Generating input files for Caster from the mkBeeastDat.R directory from Zach's LycAdmix Github.##
+
+library(data.table)
+
+a1f<-list.files(pattern="ad1_fff")
+a2f<-a1f
+a2f<-gsub("ad1","ad2",a2f)
+asnp<-a1f
+asnp<-gsub("ad1","snps",asnp)
+N<-length(a1f)
+ids<-read.table("IDs.txt",header=FALSE)
+temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
+chrom<-gsub(".txt","",temp)
+
+SSeq<-vector("list",27)
+for(i in 1:N){
+	SSeq[[i]]<-vector("list",length(a1f))
+}
+
+for(i in 1:N){
+	cat(i,"\n")
+	out<-paste("max_chrom",chrom[i],".fasta",sep="")
+	a1<-as.matrix(fread(a1f[i],header=F))
+	a2<-as.matrix(fread(a2f[i],header=F))
+	n<-a1+a2
+	p<-a2/(a1+a2) ## non-ref
+	p[n < 5]<-NA
+	J<-dim(p)[2]
+	L<-dim(p)[1]
+	snps<-as.data.frame(fread(asnp[i],header=FALSE))
+	for(j in 1:J){
+		nx<-as.numeric(p[,j] > .5) + 1
+		ss<-rep("N",L)
+		jx<-which(is.na(p[,j])==FALSE)
+		for(l in jx){
+			ss[l]<-snps[l,nx[l]]
+		}
+		SS1<-paste(ss,collapse="")
+		#SSeq[[j]][[i]]<-paste(ss,collapse="")
+		cat(">",ids[j,1],"\n",file=out,append=TRUE,sep="")
+		cat(SS1,"\n",file=out,append=TRUE,sep="")
+	}
+	
+}
+
+
+
+
