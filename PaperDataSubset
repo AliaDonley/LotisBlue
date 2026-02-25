@@ -587,6 +587,10 @@ for(i in 1:N){
 
 ###Generating input files for Caster from the mkBeeastDat.R directory from Zach's LycAdmix Github.##
 
+
+######### Making input files for BEAST first ###################
+###############mkBeastDat.R################
+
 library(data.table)
 
 a1f<-list.files(pattern="ad1_fff")
@@ -600,35 +604,146 @@ temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
 chrom<-gsub(".txt","",temp)
 
 SSeq<-vector("list",27)
+
+##this is where it breaks becasue snp chrom 9 doesnt exist?
+
 for(i in 1:N){
-	SSeq[[i]]<-vector("list",length(a1f))
+        SSeq[[i]]<-vector("list",length(a1f))
 }
 
 for(i in 1:N){
-	cat(i,"\n")
-	out<-paste("max_chrom",chrom[i],".fasta",sep="")
-	a1<-as.matrix(fread(a1f[i],header=F))
-	a2<-as.matrix(fread(a2f[i],header=F))
-	n<-a1+a2
-	p<-a2/(a1+a2) ## non-ref
-	p[n < 5]<-NA
-	J<-dim(p)[2]
-	L<-dim(p)[1]
-	snps<-as.data.frame(fread(asnp[i],header=FALSE))
-	for(j in 1:J){
-		nx<-as.numeric(p[,j] > .5) + 1
-		ss<-rep("N",L)
-		jx<-which(is.na(p[,j])==FALSE)
-		for(l in jx){
-			ss[l]<-snps[l,nx[l]]
-		}
-		SS1<-paste(ss,collapse="")
-		#SSeq[[j]][[i]]<-paste(ss,collapse="")
-		cat(">",ids[j,1],"\n",file=out,append=TRUE,sep="")
-		cat(SS1,"\n",file=out,append=TRUE,sep="")
-	}
-	
+        cat(i,"\n")
+        out<-paste("max_chrom",chrom[i],".fasta",sep="")
+        a1<-as.matrix(fread(a1f[i],header=F))
+        a2<-as.matrix(fread(a2f[i],header=F))
+        n<-a1+a2
+        p<-a2/(a1+a2) ## non-ref
+        p[n < 5]<-NA
+        J<-dim(p)[2]
+        L<-dim(p)[1]
+        snps<-as.data.frame(fread(asnp[i],header=FALSE))
+        for(j in 1:J){
+                nx<-as.numeric(p[,j] > .5) + 1
+                ss<-rep("N",L)
+                jx<-which(is.na(p[,j])==FALSE)
+                for(l in jx){
+                        ss[l]<-snps[l,nx[l]]
+                }
+                SS1<-paste(ss,collapse="")
+                #SSeq[[j]][[i]]<-paste(ss,collapse="")
+                cat(">",ids[j,1],"\n",file=out,append=TRUE,sep="")
+                cat(SS1,"\n",file=out,append=TRUE,sep="")
+        }
+        
 }
+
+
+##output max_chromad1_fff_o_lycpool_chrom*.fasta
+
+########## Did not need to use SubAlign.pl to drop rep pop samples #######
+
+######Used mkNumericFasta.pl to convert alignments to numeric ################
+##mkNumericFasta.pl##
+
+#!/usr/bin/perl
+
+## this is to figure out which SNPs are variable in the fasta
+
+foreach $i (1..23){
+        system "grep -v \"^>\" sub_max_chromad1_fff_o_lycpool_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
+        #system "grep -v \"^>\" sub_chrom$i.fasta | perl -p -i -e 'tr/ACGT/1234/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+
+}
+ ##output: sub_max_chromad1_fff_o_lycpool_chrom*.fasta
+
+########## then used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs#######################
+## This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
+## GetSNPSubstMax.R ##
+
+## identify SNPs from the alignments that are variable in the alignments
+## and subsample these
+
+library(data.table)
+
+miss<-vector("list",23)
+for(i in 1:23){
+        ifile<-paste("text_max_chrom",i,".fasta",sep="")
+        dat<-fread(ifile,header=FALSE)
+        miss[[i]]<-apply(dat==5,2,mean)
+
+}
+## retain 0.035 percent with the appropriate conditions
+keepSNPs<-vector("list",23)
+prop<-0.00035
+for(i in 1:23){
+        xx<-which(miss[[i]]==0) ## no missing data
+        keepSNPs[[i]]<-sort(sample(xx,floor(length(miss[[i]])*prop),replace=FALSE))
+}
+for(i in 1:23){
+        out<-paste("keepSNPs_max_chrom",i,sep="")
+        write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
+}
+save(list=ls(),file="snps_max.rdat")
+
+
+##output: snps_max.rdat AND keepSNPS_max_chrom*
+
+###### Then created combined across chromosomes fasta alignment filent file with just subset of SNPs with SubSetFasta.pl and converted to nex file for beauti
+
+##SubSetFasta.pl
+
+
+#!/usr/bin/perl
+#
+# this subsets and concatenates a set of SNPs from fasta
+foreach $i (1..23){
+	open(IN,"keepSNPs_max_chrom$i") or die "failed to open snps file $i\n";
+	#open(IN,"keepSNPs_chrom$i") or die "failed to open snps file $i\n";
+	$j = 0;
+	while(<IN>){
+		chomp;
+		push (@{$snps[$i]},$_);
+	}
+	close(IN);
+}
+open(OUT, "> lyc_genomemax.fasta") or die "failed to write\n";
+%seq;
+foreach $i (1..23){
+	open(IN,"sub_max_chrom$i.fasta") or die "failed to open snps file $i\n";
+	while(<IN>){
+		chomp;
+		if(m/^>(\S+)/){
+			$id = $1;
+			if($i == 1){
+				@{$seq{$id}} = ();
+			}
+		} else {
+			foreach $snp (@{$snps[$i]}){
+				$c = substr $_,$snp-1, 1;
+				unless(length($c)==1){
+					print "$c\n";
+				}
+				push(@{$seq{$id}}, $c);
+			}
+		}
+	}
+	close(IN);
+}
+foreach $pop (sort keys %seq){
+	$str = join("",@{$seq{$pop}});
+	unless($pop =~ m/rep/){
+		$pop =~ s/Lyc-//;
+		$pop =~ s/\d+//;
+		print OUT ">$pop\n";
+		print OUT "$str\n";
+	}
+}
+close(OUT);
+
+In terminal: seqmagick convert --output-format nexus --alphabet dna lyc_genomemax.fasta lyc_genomemax.nex
+
+##output: lyc_genomemax.fasta and .nexx
+
 
 
 
