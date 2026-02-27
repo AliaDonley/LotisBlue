@@ -520,6 +520,7 @@ setwd()
 library(data.table)
 
 a1f<-list.files(pattern="ad1_fff")
+a1f<-a1f[1:23]
 a2f<-a1f
 a2f<-gsub("ad1","ad2",a2f)
 N<-length(a1f)
@@ -576,9 +577,122 @@ for(i in 1:N){
 
 }
 
-##getting the error that p does not exist, so switched that last line to just spell out the entire variable 
+## mn P
+reps<-grep(pattern="rep",ids[,1])
+mnP<-vector("list",24)
+Nas<-vector("list",24)
+for(i in 1:N){
+	mnP[[i]]<-apply(P[[i]][,-reps],1,mean,na.rm=TRUE)
+	Nas[[i]]<-apply(is.na(P[[i]][,-reps]),1,sum)
 
+}
+## retain 0.02 percent with the appropriate conditions
+keepSNPs<-vector("list",24)
+prop<-0.0002
+for(i in 1:N){
+	xx<-which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]]==0)
+	keepSNPs[[i]]<-sort(sample(xx,floor(length(mnP[[i]])*prop),replace=FALSE))
+}
+for(i in 1:N){
+	out<-paste("keepSNPs_chrom",chrom[i],sep="")
+	write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
+}
 
+save(list=ls(),file="fst.rdat")
+
+## compute all of the pairwise Fst by pair and chromosome (not for each SNP)
+Npop<-27
+Nx<-(Npop*(Npop-1))/2
+fstGw<-matrix(NA,nrow=Nx,ncol=24)
+fst90<-matrix(NA,nrow=Nx,ncol=24)
+x<-1
+for(i in 1:(Npop-1)){
+	for(j in (i+1):Npop){
+		for(k in 1:24){
+			keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+			pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+			Ht<-2*pbar*(1-pbar)
+			Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+			
+			fstGw[x,k]<-mean(Ht-Hs)/mean(Ht)
+			fst<-(Ht-Hs)/Ht
+			fst90[x,k]<-quantile(fst,.9,na.rm=TRUE)
+		}
+		x<-x+1
+	}
+}
+
+## plot of mean and 90 quantile per chromsome for each pair
+mord<-c(1,12,18:24,2:11,13:17)
+pdf("FstLycSpc.pdf",width=8,height=10)
+par(mfrow=c(5,3))
+par(mar=c(4,5,2.5,.5))
+x<-1
+for(i in 1:(Npop-1)){
+	for(j in (i+1):Npop){
+		plot(fstGw[x,mord],pch=19,ylim=c(0,1),xlab="Chromosome",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=.9)
+		segments(x0=1:24,y0=fstGw[x,mord],x1=1:24,y1=fst90[x,mord])
+		title(main=paste(ids[i,1]," x ",ids[j,1],sep=""),cex.main=1.2)
+		mn<-round(mean(fstGw[x,mord]),2)
+		text(5,.9,mn)
+		x<-x+1
+	}
+}
+dev.off()
+
+## simple plot of Fst continuum, this includes replicates, just sorted median (across chroms) Fst
+plot(sort(apply(fstGw,1,median)),pch=19)
+## pretty sure the uptick at the far right is Alaskc and France
+## same thing just Z
+plot(sort(fstGw[,24]),pch=19) ## very similar
+## and against each other
+plot(apply(fstGw,1,median),fstGw[,24],pch=19,xlab="Genome median",ylab="Z chrom")
+abline(a=0,b=1)
+## mostly correlated, Z higher
+
+### window examples
+
+### populations are from the ID.txt file and designated by i<-1 and j<-27
+
+##ABM20 and YG20
+
+mord<-c(1,12,18:23,2:11,13:17)
+pdf("FstWinsABM20_YG20.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-1;j<-27
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+##MEN and SBW18
+pdf("FstWinsMEN12_SBW18.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-16;j<-19
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
 
 
 
@@ -746,9 +860,6 @@ In terminal: seqmagick convert --output-format nexus --alphabet dna lyc_genomema
 
 
 
-
-
-
 ################# CASTER #########################
 
 ##FOR CASTER TO WORK NEED TO ml gcc/13.3.0
@@ -841,7 +952,109 @@ dev.off()
 ##im afraid hahahahaha###
 
 
+#### Now I have no idea what's going on I need somebody to hold my hand####
+
+###running anumber of sliding window analyses with CASTER. ### 
+## Zach says: For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 kb windows, then average over sets of 5 windows to plot 
+normalized (sum to 1) scores across the genome. I have one sub-directory for each set of taxa. The basic commands look like this (executed from 
+within the sub-directory with a mapping file, Sub* file and symbolic links to the sub_max* alignments)######
+
+####What did I do? Ran WinSubAlign.pl####
+
+#!/usr/bin/perl
+#
+# keep only a subset of taxa
+#
+## subfile contains taxa to keep
+$subfile = shift(@ARGV);
+open(IN, $subfile) or die;
+while(<IN>){
+        chomp;
+        $keep{$_} = 1;
+}
+close(IN);
+$prefix = $subfile;
+$prefix =~ s/\.txt// or die "faield at $prefix\n";
+foreach $fa (@ARGV){
+        open(IN, $fa) or die "failed to read $fa\n";
+        open(OUT, "> $prefix"."_$fa") or die "failed to write for $fa\n";
+        while(<IN>){
+                chomp;
+                if(m/^>(\S+)/){
+                        $id = $1;
+                        if(defined $keep{$id}){
+                                print OUT "$_\n";
+                                $a = <IN>;
+                                print OUT $a;
+                        }
+                }
+        }
+        close(IN);
+        close(OUT);
+}
+
+######AND######
+
+##RunWindows.pl###
+#!/usr/bin/perl
+#
+for $i (1..23){
+        system "../wins/MASTERWORK/bin/slidingwindow SubABMxSINxTBY_sub_max_chrom$i.fasta MappingABMxSINxTBY.txt > winout$i.tsv\n";
+}
+
+#### The results were summarized with 
+
+##Win.Test.R
 
 
+## 10 kb windows HJxVExSIN
+# A = HJ, B = VE, C = SIN
+# intraspecific only? 
+
+scAB<-vector("list",23)
+scBC<-vector("list",23)
+scAC<-vector("list",23)
+for(ch in 1:23){
+	inf<-paste("winout",ch,".tsv",sep="")
+	dat<-read.table(inf,header=TRUE)
+	L<-dim(dat)[1]
+	NL<-L-5
+	ab<-rep(NA,NL)
+	ac<-rep(NA,NL)
+	bc<-rep(NA,NL)
+	for(i in 1:NL){
+		ab[i]<-mean(dat$A.B[i:(i+4)])
+		bc[i]<-mean(dat$B.C[i:(i+4)])
+		ac[i]<-mean(dat$A.C[i:(i+4)])
+		sc<-c(ab[i],bc[i],ac[i])
+		ssc<-sum(sc)
+		ab[i]<-ab[i]/ssc
+		bc[i]<-bc[i]/ssc
+		ac[i]<-ac[i]/ssc
+	}
+	scAB[[ch]]<-ab
+	scAC[[ch]]<-ac
+	scBC[[ch]]<-bc
+}
+
+mat<-rbind(unlist(scAB),unlist(scAC),unlist(scBC))
+
+apply(mat,1,mean)
+#[1] 0.6354200 0.2473369 0.1172431
+# looks like HJ x SIN more than VE x SIN? could be real?
+
+
+szs<-unlist(lapply(scAB,length))
+ch<-rep(c(1:23),szs)
+
+pdf("winHJxVExSIN.pdf",width=9,height=4)
+par(mar=c(5,5,1,1))
+xx<-barplot(mat,border=NA,axes=FALSE,xlab="Chromosome",ylab="Score")
+mids<-tapply(X=xx,INDEX=ch,mean)
+bnds<-tapply(X=xx,INDEX=ch,max)[-23]
+abline(v=bnds)
+axis(2)
+axis(1,mids,c(1:22,"Z"))
+dev.off()
 
 
