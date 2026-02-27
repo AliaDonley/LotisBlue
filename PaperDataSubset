@@ -695,6 +695,199 @@ for(k in mord){
 dev.off()
 
 
+########## Lotis and SHC11####################33 START 
+
+pdf("FstWinsLOTIS_SHC11.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-14;j<-20
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+
+########Lotis and YG20
+
+
+pdf("FstWinsLOTIS_YG20.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-14;j<-27
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+##################TBY11 and TBY51
+
+pdf("FstWinsTBY51_TBY11.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-24;j<-23
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+
+###########BAT49 and BAT20
+
+pdf("FstWinsBAT49_BAT20.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-3;j<-2
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+###GNP17 and HNV17
+pdf("FstWinsGNP17_HNV17.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-11;j<-13
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+####GNP17 and Lotis
+
+
+pdf("FstWinsGNP17_LOTIS.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-11;j<-14
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+
+
+
+pdf("FstWinsMR20_CP19.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-17;j<-9
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+
+pdf("FstWinsBCR17_BTB17.pdf",width=8,height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i<-4;j<-7
+for(k in mord){
+	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+	Nw<-floor(length(keep)/200)
+	win<-rep(1:Nw,each=200)
+	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
+	Ht<-2*pbar*(1-pbar)
+	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
+	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
+	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
+	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
+	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
+}
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ######### Making input files for BEAST first ###################
 ###############mkBeastDat.R################
