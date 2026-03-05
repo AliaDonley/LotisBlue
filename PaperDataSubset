@@ -565,9 +565,9 @@ dev.off()
 
 ############FST###########
 
-P<-vector("list",24)
-n<-vector("list",24)
-H<-vector("list",24)
+P<-vector("list",23)
+n<-vector("list",23)
+H<-vector("list",23)
 for(i in 1:N){
 	a1<-as.matrix(fread(a1f[i],header=F))
 	a2<-as.matrix(fread(a2f[i],header=F))
@@ -579,36 +579,50 @@ for(i in 1:N){
 
 ## mn P
 reps<-grep(pattern="rep",ids[,1])
-mnP<-vector("list",24)
-Nas<-vector("list",24)
+mnP<-vector("list",23)
+Nas<-vector("list",23)
 for(i in 1:N){
 	mnP[[i]]<-apply(P[[i]][,-reps],1,mean,na.rm=TRUE)
 	Nas[[i]]<-apply(is.na(P[[i]][,-reps]),1,sum)
 
 }
 ## retain 0.02 percent with the appropriate conditions
-keepSNPs<-vector("list",24)
+keepSNPs<-vector("list",23)
 prop<-0.0002
 for(i in 1:N){
 	xx<-which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]]==0)
 	keepSNPs[[i]]<-sort(sample(xx,floor(length(mnP[[i]])*prop),replace=FALSE))
 }
+### this gave me an error code so I tried this
+
+keepSNPs <- vector("list", 24)
+prop <- 0.0002
+for(i in 1:N){
+    xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
+    if(length(xx) > 0){ n_keep <- floor(length(xx) * prop)
+        if(n_keep > 0){keepSNPs[[i]] <- sort(sample(xx, n_keep, replace = FALSE))
+        } else {keepSNPs[[i]] <- integer(0)}
+ } else {keepSNPs[[i]] <- integer(0) }
+}
+
+##sampled from filtered snps, not empy vectors, scale proportion based on length
+
 for(i in 1:N){
 	out<-paste("keepSNPs_chrom",chrom[i],sep="")
 	write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
 }
 
-save(list=ls(),file="fst.rdat")
+save(list=ls(),file="fst.rdatV2")
 
 ## compute all of the pairwise Fst by pair and chromosome (not for each SNP)
 Npop<-27
 Nx<-(Npop*(Npop-1))/2
-fstGw<-matrix(NA,nrow=Nx,ncol=24)
-fst90<-matrix(NA,nrow=Nx,ncol=24)
+fstGw<-matrix(NA,nrow=Nx,ncol=23)
+fst90<-matrix(NA,nrow=Nx,ncol=23)
 x<-1
 for(i in 1:(Npop-1)){
 	for(j in (i+1):Npop){
-		for(k in 1:24){
+		for(k in 1:23){
 			keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
 			pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
 			Ht<-2*pbar*(1-pbar)
@@ -623,8 +637,8 @@ for(i in 1:(Npop-1)){
 }
 
 ## plot of mean and 90 quantile per chromsome for each pair
-mord<-c(1,12,18:24,2:11,13:17)
-pdf("FstLycSpc.pdf",width=8,height=10)
+mord<-c(1,12,18:23,2:11,13:17)
+pdf("FstLycSpcV2.pdf",width=8,height=10)
 par(mfrow=c(5,3))
 par(mar=c(4,5,2.5,.5))
 x<-1
@@ -697,7 +711,7 @@ dev.off()
 
 ########## Lotis and SHC11####################33 START 
 
-pdf("FstWinsLOTIS_SHC11.pdf",width=8,height=9)
+pdf("FstWinsLOTIS_SHC11V2.pdf",width=8,height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
 i<-14;j<-20
@@ -715,7 +729,31 @@ for(k in mord){
 }
 dev.off()
 
+########### Corrected code and the errors: Ht and Hs are already computed and have 
+### length =length(keep). But Ht[keep] and Hs[keep] was indexing a short vector and 
+##producing NAs. Here is the corrected code (I think)
 
+pdf("FstWinsLOTIS_SHC11V2.pdf", width=8, height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i <- 14; j <- 20
+for(k in mord){
+  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+  Nw <- floor(length(keep)/200)
+  if(Nw < 1) next
+  win <- rep(1:Nw, each=200)
+  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
+  Ht   <- 2*pbar*(1-pbar)
+  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
+  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
+  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
+  fst <- Num / Den
+  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
+  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
+}
+dev.off()
+
+##### Doing the same for my broken ones (will be labelled V2)
 
 
 ########Lotis and YG20
@@ -740,7 +778,7 @@ for(k in mord){
 dev.off()
 
 
-
+##get lengths and number of snps for FstLycspc to see if it is actually the z that is popping out as odd##
 ##################TBY11 and TBY51
 
 pdf("FstWinsTBY51_TBY11.pdf",width=8,height=9)
@@ -761,7 +799,26 @@ for(k in mord){
 }
 dev.off()
 
-
+#############3Version 2)- forgot to label as V2 in chpc
+pdf("FstWinsTBY51_TBY11.pdf", width=8, height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i <- 24; j <- 23
+for(k in mord){
+  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+  Nw <- floor(length(keep)/200)
+  if(Nw < 1) next
+  win <- rep(1:Nw, each=200)
+  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
+  Ht   <- 2*pbar*(1-pbar)
+  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
+  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
+  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
+  fst <- Num / Den
+  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
+  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
+}
+dev.off()
 
 
 ###########BAT49 and BAT20
@@ -784,7 +841,26 @@ for(k in mord){
 }
 dev.off()
 
-
+###############V2
+pdf("FstWinsBAT49_BAT20V2.pdf", width=8, height=9)
+par(mfrow=c(3,2))
+par(mar=c(4.5,5,2.5,.5))
+i <- 2; j <- 2
+for(k in mord){
+  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
+  Nw <- floor(length(keep)/200)
+  if(Nw < 1) next
+  win <- rep(1:Nw, each=200)
+  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
+  Ht   <- 2*pbar*(1-pbar)
+  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
+  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
+  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
+  fst <- Num / Den
+  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
+  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
+}
+dev.off()
 
 ###GNP17 and HNV17
 pdf("FstWinsGNP17_HNV17.pdf",width=8,height=9)
@@ -1249,5 +1325,9 @@ abline(v=bnds)
 axis(2)
 axis(1,mids,c(1:22,"Z"))
 dev.off()
+
+
+bayesian skyline analysis demographic reconstruction from poolseq data- moments or dotti maybe?
+wing patterns- more than 5
 
 
