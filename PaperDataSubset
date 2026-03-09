@@ -593,9 +593,14 @@ for(i in 1:N){
 	xx<-which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]]==0)
 	keepSNPs[[i]]<-sort(sample(xx,floor(length(mnP[[i]])*prop),replace=FALSE))
 }
-### this gave me an error code so I tried this
+### this gave me an error code so I tried this to check the number of eligible snps:
+for(i in 1:N){
+  xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
+  cat("chrom", i, "eligible SNPs:", length(xx), "\n")
+}
 
-keepSNPs <- vector("list", 24)
+
+keepSNPs <- vector("list", 23)
 prop <- 0.0002
 for(i in 1:N){
     xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
@@ -671,7 +676,7 @@ abline(a=0,b=1)
 ##ABM20 and YG20
 
 mord<-c(1,12,18:23,2:11,13:17)
-pdf("FstWinsABM20_YG20.pdf",width=8,height=9)
+pdf("FstWinsABM20_YG20V2.pdf",width=8,height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
 i<-1;j<-27
@@ -759,7 +764,7 @@ dev.off()
 ########Lotis and YG20
 
 
-pdf("FstWinsLOTIS_YG20.pdf",width=8,height=9)
+pdf("FstWinsLOTIS_YG20V2.pdf",width=8,height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
 i<-14;j<-27
