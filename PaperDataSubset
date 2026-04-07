@@ -960,8 +960,39 @@ dev.off()
 
 
 
+##### Compute the invariant site counts to put into the beast file #####
 
+ComputeInvariant.R
 
+## determines the number of invariant bases to add to the beast XML file
+## read in base counts (A, C, G, T) by scaffold from the genome 
+## get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
+cnts<-read.table("baseCounts.txt",header=FALSE)
+## get big scaffolds, top 23
+totals<-apply(cnts[,-1],1,sum)
+rev(sort(totals))[1:23]
+# [1] 31424484 26391115 25798047 25285067 25079126 25067872 22431864 21864934
+# [9] 21544644 21226148 20022703 19681008 18787320 18503979 18445203 17279337
+#[17] 17086116 16627315 16626411 16602730 15714686 13063727  9211676
+
+chr<-which(totals >= 9211676)
+
+## get total A, C, G, T
+bcnt<-apply(cnts[chr,-1],2,sum)
+
+## multiply by 0.00035 to match subsetting for SNP data
+prop<-0.00035
+sbcnt<-floor(bcnt*prop)
+
+## get SNP bases
+## perl countBases.pl > snpCounts.txt
+snps<-read.table("snpCounts.txt",header=FALSE)
+## average across Lycaeides
+snpCnts<-floor(apply(snps[-13,-1],2,mean))
+invar<-sbcnt-snpCnts
+invar
+#   A    C    G    T 
+#50190 28322 28284 50114
 
 
 
@@ -1334,5 +1365,80 @@ dev.off()
 
 bayesian skyline analysis demographic reconstruction from poolseq data- moments or dotti maybe?
 wing patterns- more than 5
+
+
+########################## Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files #####################################
+
+R
+be in correct working directory
+library(data.table)
+a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+a2 <- as.matrix(fread("ad2_fff_o_lycpool_chrom1.txt", header=FALSE))
+cov <- a1 + a2
+
+##rows= snps
+##colums= pops
+
+
+nms <- read.table("bams", header=FALSE)
+clean_nms <- gsub("dedup_|.bam", "", nms[,1])
+colnames(cov) <- clean_nms
+
+lotis_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_LOTIS"]
+bat20_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_BAT20"]
+bat49_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_BAT49"]
+tby11_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_TBY11"]
+tby51_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_TBY51"]
+shc11_cov<- cov[, "/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filt_SHC11"]
+
+summary(lotis_cov)
+summary(bat49_cov)
+summary(tby51_cov)
+summary(bat20_cov)
+
+
+### finding a sweet spot between the two extremes from the ancient populations. Somewhere between 8-20x coverage
+and 500x coverage. Will then read in each ad file for each chromosome, index it, and filter for each population 
+based on what I decided################
+
+sum(lotis_cov > 20)
+sum(lotis_cov > 20 & bat49_cov > 20)
+sum(lotis_cov > 20   & lotis_cov < 500)
+
+#####
+
+library(data.table)
+a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+a2 <- as.matrix(fread("ad2_fff_o_lycpool_chrom1.txt", header=FALSE))
+cov <- a1 + a2
+min_pops <- 27
+keep <- apply(cov, 1, function(x) sum(x >= 20 & x <= 500) >= min_pops)
+
+##should not be summing? filtering out below 20 and above 500
+
+nrow(a1)      # total SNPs before filtering
+sum(keep)       # SNPs kept after filtering
+sum(!keep)		#SNPs removed
+
+a1_filtered <- a1[keep, , drop=FALSE]
+a2_filtered <- a2[keep, , drop=FALSE]
+
+out1 <- "beastfilteredad1_fff_o_lycpool_chrom1.txt"
+out2 <- "beastfilteredad2_fff_o_lycpool_chrom1.txt"
+
+
+fwrite(a1_filtered, file=out1, sep="\t", col.names=FALSE)
+fwrite(a2_filtered, file=out2, sep="\t", col.names=FALSE)
+
+a1_original <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+a1_filtered_check <- as.matrix(fread("beastfilteredad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+
+nrow(a1_original)      
+nrow(a1_filtered_check)
+
+head(fread("beastfilteredad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+
+cutoff <- (x > 19 OR < 501)
+test <- cov[cutoff]
 
 
