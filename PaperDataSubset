@@ -1408,26 +1408,25 @@ sum(lotis_cov > 20   & lotis_cov < 500)
 #####
 
 library(data.table)
-a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
-a2 <- as.matrix(fread("ad2_fff_o_lycpool_chrom1.txt", header=FALSE))
+a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom23.txt", header=FALSE))
+a2 <- as.matrix(fread("ad2_fff_o_lycpool_chrom23.txt", header=FALSE))
 cov <- a1 + a2
 min_pops <- 27
 keep <- apply(cov, 1, function(x) sum(x >= 20 & x <= 500) >= min_pops)
 
-##should not be summing? filtering out below 20 and above 500
 
 nrow(a1)      # total SNPs before filtering
 sum(keep)       # SNPs kept after filtering
 sum(!keep)		#SNPs removed
 
-a1_filtered <- a1[keep, , drop=FALSE]
-a2_filtered <- a2[keep, , drop=FALSE]
+a1_filtered <- a1[keep,]
+a2_filtered <- a2[keep,]
 
-out1 <- "beastfilteredad1_fff_o_lycpool_chrom1.txt"
-out2 <- "beastfilteredad2_fff_o_lycpool_chrom1.txt"
+out1 <- "beastfilteredad1_fff_o_lycpool_chrom23.txt"
+out2 <- "beastfilteredad2_fff_o_lycpool_chrom23.txt"
 
 
-fwrite(a1_filtered, file=out1, sep="\t", col.names=FALSE)
+fwrite(a1_filtered, file=out1, sep="\t", col.names=FALSE)	
 fwrite(a2_filtered, file=out2, sep="\t", col.names=FALSE)
 
 a1_original <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
@@ -1436,9 +1435,7 @@ a1_filtered_check <- as.matrix(fread("beastfilteredad1_fff_o_lycpool_chrom1.txt"
 nrow(a1_original)      
 nrow(a1_filtered_check)
 
-head(fread("beastfilteredad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
 
-cutoff <- (x > 19 OR < 501)
-test <- cov[cutoff]
 
 
