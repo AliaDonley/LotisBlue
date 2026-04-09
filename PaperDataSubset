@@ -1158,9 +1158,50 @@ In terminal: seqmagick convert --output-format nexus --alphabet dna lyc_genomema
 ##output: lyc_genomemax.fasta and .nexx
 
 ################## making the input file beauti for BEAST ##############
+ml beast
+beauti
+used lyc_genomemax.nex as input for beauti (import alignment from partitions)
+didn't use tip dates
+Site model- 
+	gamma. Gamma category count: 4. Shape= 1
+	Proportion invariant- 0
+	Subst Model- GTR
+	All Rates (AC, AG, GT, etc.) = 1 and are estimates. 
+	Rate CT is not an estimate and = 1
+	frequencies = estimated
+Clock Model
+	Random local clock
+	check scaling....?
+	mean clock rate = .0029
+	
+Priors:
+For these all estimate boxes are left empty (in code they will = false)
+	Tree- coalescent bayseian skyline (BSP)
+	RRate changes- Gamma
+	clockrates- gamma w/ 1-> 1e-9, dimensions -44, apha= .05, beta=10, shapescale, offset=0
+	freqparameters- dirichlet 4, 4, 4, 4, 1, dimensions 0 -> 1, alpha = 4,4,4,4, sum=1, offset=0
+	gammaShapes- exponential, dim= 1 -> inf, mean= 1
+	rateAC- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
+	rateAG- gamma,  dim= 1 -> inf, alpha= .05, beta=20, offset= 0, mode=shapescale?
+	rateAT- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
+	rateCG- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
+	rateGT- gamma,  dim= 1 -> inf, alpha= .05, beta=20, offset= 0, mode=shapescale?
+	TMRCAALL.prior-all taxon, mean = 5.22, sigma=.283, offset= 0, monophyletic- true
+	TMRCALyc.prior- all taxon but outgrou MEN, mean=2.4, sigma= .288, offset= 0, monophyletic= true
+MCMC
+Coupled MCMC
+	Chains:5
+resample every 1000
+delta temp: .025
+optimise= true?
+optimise delay: 100?
+target: wtf does this mean .234?
+chainlength: 500000000
+Store every 25000
+Pre burnin 1000?
+Number initialization attempts: 100?
 
-
-
+last run saved as lyc_wgs_max_ranlc3.xmlo
 
 
 
