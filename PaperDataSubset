@@ -1053,6 +1053,8 @@ for(i in 1:N){
 
 ##output max_chromad1_fff_o_lycpool_chrom*.fasta
 
+##for round 2 output is max_chromad1V2_fff_o_lycpool_chrom*.fasta
+
 ########## Did not need to use SubAlign.pl to drop rep pop samples #######
 
 ######Used mkNumericFasta.pl to convert alignments to numeric ################
@@ -1065,9 +1067,13 @@ for(i in 1:N){
 foreach $i (1..23){
         system "grep -v \"^>\" sub_max_chromad1_fff_o_lycpool_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
         #system "grep -v \"^>\" sub_chrom$i.fasta | perl -p -i -e 'tr/ACGT/1234/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+###updated used: max_chromV2ad1_fff_o_lycpool_chrom$i.fasta
+
+foreach $i (1..23){
+system "grep -v \"^>\" max_chromV2ad1_fff_o_lycpool_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
 
 }
- ##output: sub_max_chromad1_fff_o_lycpool_chrom*.fasta
+ ##output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
 
 ########## then used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs#######################
 ## This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
@@ -1080,7 +1086,7 @@ library(data.table)
 
 miss<-vector("list",23)
 for(i in 1:23){
-        ifile<-paste("text_max_chrom",i,".fasta",sep="")
+        ifile<-paste("sub_max_chromV2ad1_fff_o_lycpool_chrom",i,".fasta",sep="")
         dat<-fread(ifile,header=FALSE)
         miss[[i]]<-apply(dat==5,2,mean)
 
