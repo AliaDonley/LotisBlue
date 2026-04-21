@@ -1485,4 +1485,12 @@ nrow(a1_filtered_check)
 head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
 
 
+##check how many SNPS total
+
+wc -l beastfiltered*
+### 24560
+
+
+
+
 
