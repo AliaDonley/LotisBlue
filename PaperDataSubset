@@ -1177,7 +1177,7 @@ Clock Model
 Priors:
 For these all estimate boxes are left empty (in code they will = false)
 	Tree- coalescent bayseian skyline (BSP)
-	RRate changes- Gamma
+	RRate changes- Poisson 
 	clockrates- gamma w/ 1-> 1e-9, dimensions -44, apha= .05, beta=10, shapescale, offset=0
 	freqparameters- dirichlet 4, 4, 4, 4, 1, dimensions 0 -> 1, alpha = 4,4,4,4, sum=1, offset=0
 	gammaShapes- exponential, dim= 1 -> inf, mean= 1
@@ -1186,22 +1186,22 @@ For these all estimate boxes are left empty (in code they will = false)
 	rateAT- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
 	rateCG- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
 	rateGT- gamma,  dim= 1 -> inf, alpha= .05, beta=20, offset= 0, mode=shapescale?
-	TMRCAALL.prior-all taxon, mean = 5.22, sigma=.283, offset= 0, monophyletic- true
-	TMRCALyc.prior- all taxon but outgrou MEN, mean=2.4, sigma= .288, offset= 0, monophyletic= true
+	TMRCAALL.prior-all taxon, mean = 5.22, sigma=.283, offset= 0, monophyletic- true, normal distribution 
+	TMRCALyc.prior- all taxon but outgrou MEN, mean=2.4, sigma= .283, offset= 0, monophyletic= true, normal distribution 
 MCMC
 Coupled MCMC
 	Chains:5
 resample every 1000
 delta temp: .025
-optimise= true?
+optimise= true
 optimise delay: 100?
 target: wtf does this mean .234?
 chainlength: 500000000
 Store every 25000
-Pre burnin 1000?
-Number initialization attempts: 100?
+Pre burnin 400
+Number initialization attempts: 800
 
-last run saved as lyc_wgs_max_ranlc3.xmlo
+last run saved as lyc_wgs_max_ranlc4.xml
 
 
 
