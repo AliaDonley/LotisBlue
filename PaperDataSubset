@@ -1054,6 +1054,7 @@ for(i in 1:N){
 ##output max_chromad1_fff_o_lycpool_chrom*.fasta
 
 ##for round 2 output is max_chromad1V2_fff_o_lycpool_chrom*.fasta
+##the output here should be ATGC by population
 
 ########## Did not need to use SubAlign.pl to drop rep pop samples #######
 
@@ -1067,19 +1068,24 @@ for(i in 1:N){
 foreach $i (1..23){
         system "grep -v \"^>\" sub_max_chromad1_fff_o_lycpool_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
         #system "grep -v \"^>\" sub_chrom$i.fasta | perl -p -i -e 'tr/ACGT/1234/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+
+
 ###updated used: max_chromV2ad1_fff_o_lycpool_chrom$i.fasta
+foreach $i (1..23){ 
 
-foreach $i (1..23){
-system "grep -v \"^>\" max_chromV2ad1_fff_o_lycpool_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
+	system "grep -v \"^>\" max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta\n"; 
+ 
 
-}
- ##output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
+##output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
+##output is now numeric 
+
+
 
 ########## then used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs#######################
 ## This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
 ## GetSNPSubstMax.R ##
 
-## identify SNPs from the alignments that are variable in the alignments
+## identify SNPs from the alignments that are variable in the alignmentsw
 ## and subsample these
 
 library(data.table)
@@ -1491,20 +1497,42 @@ wc -l beastfiltered*
 ### 24560
 
 
+
+###Needed to regenerate the SNP information from SNPs.sh. Still used my origional filtered set from round 1
+where filtered the vcf file with GATK version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3
+using VarFiltFork2.pl. 
+
+##output was beastfilteredsnps_fff_o_lycpool_chrom_.txt
+
+## allele depth files are taken care of from code up above. 
+##output has been switched to ad1 and 2_ beastfiltered_fff_o_lycpool_chrom
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 library(data.table)
 
 a1f<-list.files(pattern="ad1_beastfiltered")
 a2f<-a1f
 a2f<-gsub("ad1","ad2",a2f)
 asnp<-a1f
-asnp<-gsub("ad1","snps",asnp)
+asnp<-list.files(pattern="beastfilteredsnps")
 N<-length(a1f)
 ids<-read.table("IDs.txt",header=FALSE)
 temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
 chrom<-gsub(".txt","",temp)
-
-
-
 
 SSeq<-vector("list",27)
 for(i in 1:N){
@@ -1536,4 +1564,7 @@ for(i in 1:N){
 	}
 	
 }
+
+###output: max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom
+
 
