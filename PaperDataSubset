@@ -1560,15 +1560,18 @@ head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
 
 
 
-
+mkBeastDat.R
 
 library(data.table)
 
 a1f<-list.files(pattern="ad1_beastfiltered")
+a1f<-a1f[1:23]
 a2f<-a1f
 a2f<-gsub("ad1","ad2",a2f)
+
 asnp<-a1f
-asnp<-list.files(pattern="beastfilteredsnps")
+asnp<-list.files(pattern="beastfilteredsnpsV2")
+asnp<-asnp[1:23]
 N<-length(a1f)
 ids<-read.table("IDs.txt",header=FALSE)
 temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
@@ -1581,7 +1584,7 @@ for(i in 1:N){
 
 for(i in 1:N){
 	cat(i,"\n")
-	out<-paste("max_chromV2",chrom[i],".fasta",sep="")
+	out<-paste("CAST_chrom_V2",chrom[i],".fasta",sep="")
 	a1<-as.matrix(fread(a1f[i],header=F))
 	a2<-as.matrix(fread(a2f[i],header=F))
 	n<-a1+a2
@@ -1605,6 +1608,69 @@ for(i in 1:N){
 	
 }
 
-###output: max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom
+###output: max_chromFianalad1_beastfilteredV2_fff_o_lycpool_chrom
 
 
+mkCaster.R
+
+library(data.table)
+
+a1f<-list.files(pattern="ad1_beastfiltered")
+a1f<-a1f[1:23]
+a2f<-a1f
+a2f<-gsub("ad1","ad2",a2f)
+asnp<-a1f
+asnp<-list.files(pattern="beastfilteredsnpsV2")
+asnp<-asnp[1:23]
+N<-length(a1f)
+ids<-read.table("IDs.txt",header=FALSE)
+temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
+chrom<-gsub(".txt","",temp)
+
+SSeq<-vector("list",27)
+for(i in 1:N){
+	SSeq[[i]]<-vector("list",length(a1f))
+}
+
+for(i in 1:N){
+	cat(i,"\n")
+	out<-paste("CAST_chrom_V2",chrom[i],".fasta",sep="")
+	a1<-as.matrix(fread(a1f[i],header=F))
+	a2<-as.matrix(fread(a2f[i],header=F))
+	n<-a1+a2
+	p<-a2/(a1+a2) ## non-ref
+	p[is.na(p)]<-0.001
+	J<-dim(p)[2]
+	L<-dim(p)[1]
+	snps<-as.data.frame(fread(asnp[i],header=FALSE))
+for(j in 1:J){
+		nx<-rbinom(n=L,size=1,prob=p[,j]) + 1
+		ss<-rep(NA,L)
+		for(l in 1:L){
+			ss[l]<-snps[l,nx[l]]
+		}
+		SS1<-paste(ss,collapse="")
+		#SSeq[[j]][[i]]<-paste(ss,collapse="")
+		cat(">",ids[j,1],"\n",file=out,append=TRUE,sep="")
+		cat(SS1,"\n",file=out,append=TRUE,sep="")
+	}
+	
+}
+
+
+for this I just made my updated max_chrom_finalad1_beastfiltered files my sub_max files to avoid 
+naming confusion and mislabelling later on. 
+
+mv max_chrom_Finalad1_beastfilteredV2_fff_o_lycpool_chrom9.fasta sub_max_chrom9.fasta
+
+
+mkNumericFasta.pl
+#!/usr/bin/perl
+
+## this is to figure out which SNPs are variable in the fasta
+
+foreach $i (1..23){
+	system "grep -v \"^>\" max_chrom$i.fasta | perl -p -i -e 'tr/ACGTN/12345/' | sed 's/./& /g' > text_max_chrom$i.fasta\n";
+	#system "grep -v \"^>\" sub_chrom$i.fasta | perl -p -i -e 'tr/ACGT/1234/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+
+}
