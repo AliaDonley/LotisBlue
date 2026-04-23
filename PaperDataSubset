@@ -531,7 +531,7 @@ reps<-grep(pattern="rep",ids[,1])
 
 
 
-pdf("WG_LG_PCAs.pdf",width=7,height=10.5)
+pdf("WG_LG_PCAsV2.pdf",width=7,height=10.5)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5.5,2.5,1.5))
 cl<-1.3;ca<-1.1;cm<-1.4
@@ -617,7 +617,7 @@ for(i in 1:N){
 	write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
 }
 
-save(list=ls(),file="fst.rdatV2")
+save(list=ls(),file="fst.rdatV2.1")
 
 ## compute all of the pairwise Fst by pair and chromosome (not for each SNP)
 Npop<-27
@@ -643,7 +643,7 @@ for(i in 1:(Npop-1)){
 
 ## plot of mean and 90 quantile per chromsome for each pair
 mord<-c(1,12,18:23,2:11,13:17)
-pdf("FstLycSpcV2.pdf",width=8,height=10)
+pdf("FstLycSpcV2.1.pdf",width=8,height=10)
 par(mfrow=c(5,3))
 par(mar=c(4,5,2.5,.5))
 x<-1
@@ -1463,32 +1463,44 @@ sum(lotis_cov > 20   & lotis_cov < 500)
 library(data.table)
 a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom23.txt", header=FALSE))
 a2 <- as.matrix(fread("ad2_fff_o_lycpool_chrom23.txt", header=FALSE))
+snps <- as.matrix(fread("beastfilteredsnps_fff_o_lycpool_chrom23.txt", header=FALSE))
 cov <- a1 + a2
 min_pops <- 27
 keep <- apply(cov, 1, function(x) sum(x >= 20 & x <= 500) >= min_pops)
 
 
-nrow(a1)      # total SNPs before filtering
+##nrow(keep)		# total SNPs before filtering
+length(keep)
 sum(keep)       # SNPs kept after filtering
 sum(!keep)		#SNPs removed
 
 a1_filtered <- a1[keep,]
 a2_filtered <- a2[keep,]
+snps_filtered<- snps[keep,]
 
-out1 <- "beastfilteredad1_fff_o_lycpool_chrom23.txt"
-out2 <- "beastfilteredad2_fff_o_lycpool_chrom23.txt"
+out1 <- "ad1_beastfilteredV2_fff_o_lycpool_chrom23.txt"
+out2 <- "ad2_beastfilteredV2_fff_o_lycpool_chrom23.txt"
+out3 <- "beastfilteredsnpsV2_fff_o_lycpool_chrom23.txt"
 
 
-fwrite(a1_filtered, file=out1, sep="\t", col.names=FALSE)	
-fwrite(a2_filtered, file=out2, sep="\t", col.names=FALSE)
+fwrite(as.data.table(a1_filtered), file=out1, sep="\t", col.names=FALSE)	
+fwrite(as.data.table(a2_filtered), file=out2, sep="\t", col.names=FALSE)
+fwrite(as.data.table(snps_filtered), file=out3, sep="\t", col.names=FALSE)
 
-a1_original <- as.matrix(fread("ad1_fff_o_lycpool_chrom1.txt", header=FALSE))
-a1_filtered_check <- as.matrix(fread("beastfilteredad1_fff_o_lycpool_chrom1.txt", header=FALSE))
+a1_original <- as.matrix(fread("ad1_fff_o_lycpool_chrom14.txt", header=FALSE))
+a1_filtered_check <- as.matrix(fread("ad1_beastfilteredV2_fff_o_lycpool_chrom14.txt", header=FALSE))
+
+snps_origional <- as.matrix(fread("beastfilteredsnps_fff_o_lycpool_chrom10.txt", header=FALSE))
+snps_filtered_check <- as.matrix(fread("beastfilteredsnpsV2_fff_o_lycpool_chrom14.txt", header=FALSE))
 
 nrow(a1_original)      
 nrow(a1_filtered_check)
 
-head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
+nrow(snps_origional)
+nrow(snps_filtered_check)
+
+
+head(fread("beastfilteredad1_fff_o_lycpool_chrom.txt", header=FALSE))
 
 
 ##check how many SNPS total
@@ -1509,8 +1521,36 @@ using VarFiltFork2.pl.
 
 
 
+##Need to also filter the beastfilteredsnp files. Running these through the same code as ad1 and ad2 files in R. Code 
+will be below. 
+##first I copied the origional SNP files snps_fff_o_lycpool_chrom and names the set to be filtered beastfilteredsnps_fff_o_lycpool_chrom
+##the new files will have that new corrected name beastfilteredsnps_fff_o_lycpool_chrom. 
 
 
+library(data.table)
+a1 <- as.matrix(fread("fff_o_lycpool_chrom10.vcf", header=FALSE))
+cov <- a1 
+min_pops <- 27
+keep <- apply(cov, 1, function(x) sum(x >= 20 & x <= 500) >= min_pops)
+
+
+nrow(a1)      # total SNPs before filtering
+sum(keep)       # SNPs kept after filtering
+sum(!keep)		#SNPs removed
+
+snps_filtered <- a1[keep,]
+
+out1 <- "beastfilteredsnpsTEST_fff_o_lycpool_chrom10.txt"
+
+fwrite(snps_filtered, file=out1, sep="\t", col.names=FALSE)	
+
+a1_original <- as.matrix(fread("beastfilteredsnps_fff_o_lycpool_chrom10.txt", header=FALSE))
+a1_filtered_check <- as.matrix(fread("beastfilteredsnpsTEST_fff_o_lycpool_chrom10.txt", header=FALSE))
+
+nrow(a1_original)      
+nrow(a1_filtered_check)
+
+head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
 
 
 
