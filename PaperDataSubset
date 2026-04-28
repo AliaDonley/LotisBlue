@@ -1079,7 +1079,7 @@ foreach $i (1..23){
 ##output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
 ##output is now numeric 
 
-
+## (plain sub_max_chrom is AGTC format, not numeric)
 
 ########## then used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs#######################
 ## This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
@@ -1664,6 +1664,11 @@ naming confusion and mislabelling later on.
 mv max_chrom_Finalad1_beastfilteredV2_fff_o_lycpool_chrom9.fasta sub_max_chrom9.fasta
 
 
+
+### didn't need to run SubAlign.pl. Output is now  sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*
+
+
+
 mkNumericFasta.pl
 #!/usr/bin/perl
 
@@ -1674,3 +1679,100 @@ foreach $i (1..23){
 	#system "grep -v \"^>\" sub_chrom$i.fasta | perl -p -i -e 'tr/ACGT/1234/' | sed 's/./& /g' > text_chrom$i.fasta\n";
 
 }
+
+foreach $i (1..23){
+    system "grep -v \"^>\" sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+
+###output: text_chrom*.fasta
+
+##Next filtered the SNPs for Beast, doing .5 (half) instead of .0035 using GetSNPSubstMax.R
+
+
+## identify SNPs from the alignments that are variable in the alignments
+## and subsample these
+
+library(data.table)
+
+miss<-vector("list",23)
+for(i in 1:23){
+        ifile<-paste("text_chrom",i,".fasta",sep="")
+        dat<-fread(ifile,header=FALSE)
+        miss[[i]]<-apply(dat==5,2,mean)
+
+}
+## retain 0.5 percent with the appropriate conditions
+keepSNPs<-vector("list",23)
+prop<-0.5
+for(i in 1:23){
+        xx<-which(miss[[i]]==0) ## no missing data
+        keepSNPs[[i]]<-sort(sample(xx,floor(length(miss[[i]])*prop),replace=FALSE))
+}
+for(i in 1:23){
+        out<-paste("keepSNPs_max_chrom",i,sep="")
+        write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
+}
+save(list=ls(),file="snps_maxV2.rdat")
+
+###output: snps_maxV2.rdat
+
+
+
+
+####Combined fasta alignments with subset of snps using SubSetFasta.pl
+
+#!/usr/bin/perl
+#
+# this subsets and concatenates a set of SNPs from fasta
+
+foreach $i (1..23){
+	open(IN,"keepSNPs_max_chrom$i") or die "failed to open snps file $i\n";
+	#open(IN,"keepSNPs_chrom$i") or die "failed to open snps file $i\n";
+	$j = 0;
+	while(<IN>){
+		chomp;
+		push (@{$snps[$i]},$_);
+	}
+	close(IN);
+}
+open(OUT, ">lyc_genomemaxV2.fasta") or die "failed to write\n";
+%seq;
+foreach $i (1..23){
+	open(IN,"sub_max_chrom$i.fasta") or die "failed to open snps file $i\n";
+	while(<IN>){
+		chomp;
+		if(m/^>(\S+)/){
+			$id = $1;
+			if($i == 1){
+				@{$seq{$id}} = ();
+			}
+		} else {
+			foreach $snp (@{$snps[$i]}){
+				$c = substr $_,$snp-1, 1;
+				unless(length($c)==1){
+					print "$c\n";
+				}
+				push(@{$seq{$id}}, $c);
+			}
+		}
+	}
+	close(IN);
+}
+foreach $pop (sort keys %seq){
+	$str = join("",@{$seq{$pop}});
+	unless($pop =~ m/rep/){
+		$pop =~ s/Lyc-//;
+		##$pop =~ s/\d+//;
+		print OUT ">$pop\n";
+		print OUT "$str\n";
+	}
+}
+close(OUT);
+
+seqmagick convert --output-format nexus --alphabet dna lyc_genomemaxV2.fasta lyc_genomemaxV2.nex
+
+## when I put the .nex file into beauti, I have 6135 bases after this filtering round
+
+##put into beauti and save as output: lyc_wgs_ranlc.....
+
+
+
