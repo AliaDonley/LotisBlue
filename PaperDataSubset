@@ -1774,5 +1774,7 @@ seqmagick convert --output-format nexus --alphabet dna lyc_genomemaxV2.fasta lyc
 
 ##put into beauti and save as output: lyc_wgs_ranlc.....
 
+put log files into logcombiner with output: combinedlogsFinal.log
+w
 
 
