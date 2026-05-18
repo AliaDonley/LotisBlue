@@ -1420,6 +1420,10 @@ bayesian skyline analysis demographic reconstruction from poolseq data- moments 
 wing patterns- more than 5
 
 
+
+
+
+TO LOOK AT THE CASTER TREE: java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
 ########################## Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files #####################################
 
 R
@@ -1777,4 +1781,314 @@ seqmagick convert --output-format nexus --alphabet dna lyc_genomemaxV2.fasta lyc
 put log files into logcombiner with output: combinedlogsFinal.log
 w
 
+
+
+###counting the proportion of SNPs per chromosome before and after filtering. 
+## still need to cut out BAT49
+
+## Pre-filtered allele depth files are under: ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt IS THIS THE POST FILTERED
+##Post-filtered ad files under: beastfilteredsnpsV2 -PRE???
+
+# Get row counts for each chromosome file- Total at end
+wc -l ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt
+##Total= 12280
+
+# Confirm a file has no header (first row should be all numbers)
+head -1 ad1_beastfilteredV2_fff_o_lycpool_chrom1.txt
+
+##this gave me the number of SNPs per chromosome. 12,280 total snps over 23 chromosomes and across 27 pops
+##Lowest coverage was population 3, BAT49
+
+
+##SNP counts and proportions per chromosome 
+
+## All this code can be found in SNPsProportionCounts.sh
+
+##we know the total SNPs is 12280
+
+total=12280
+
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions2.txt
+
+cat snp_counts_proportions.txt 
+###output: snp_counts_proportions.txt and second run was snp_counts_proportions2.txt
+###
+
+####PROPORTION OF SNPS ON EACH CHROMOSOME
+
+
+##next going to caluclate the mean depth per population (column)
+
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    awk -v chrom="$chrom" '
+    {
+        for (i=1; i<=NF; i++) {
+            sum[i] += $i
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=NF; i++)
+            print chrom, i, sum[i]/count[i]
+    }' $f
+done > mean_coverage_per_chrom_pop2.txt
+
+
+### chrom=$(echo $f | grep -oP 'chrom\d+') - extracts chromosome label followed by one or more digits and prints only the match. P- perl style regex
+## sorts ouput. n sorts numerically, k2 sorts second field (alphebetically and then numerically). t'm' sets M in chrom as the end or delimiter (cutoff)
+
+head mean_coverage_per_chrom_pop.txt
+# Output: chrom  pop_index  mean_depth
+##output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
+
+
+##Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
+
+awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
+##Check that it worked
+cat sample_names.txt
+##Now join the files 
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+  sample_names.txt mean_coverage_per_chrom_postfilter.txt \
+  > mean_coverage_named.txt
+
+mean_coverage_total_postfilter.txt
+
+# Output: chrom  sample_name  mean_depth 
+head mean_coverage_named.txt
+##Showing us BAT49 has the worst depth coverage (~30) 
+##conpared to lotis (~40-50) and TBY51~(40-50)
+##to check coverage for each population: grep BAT49 mean_coverage_named.txt
+
+##Chromosome by population matrix (##rows= chrom, columns= pops)
+
+
+
+
+
+### Now on the post filtered
+total=12280
+for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportionspost.txt
+
+cat snp_counts_proportionspost.txt 
+###output: snp_counts_proportionspost.txt and second run was snp_counts_proportions2.txt
+###
+
+####PROPORTION OF SNPS ON EACH CHROMOSOME
+
+
+##next going to caluclate the mean depth per population (column)
+
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    awk -v chrom="$chrom" '
+    {
+        for (i=1; i<=NF; i++) {
+            sum[i] += $i
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=NF; i++)
+            print chrom, i, sum[i]/count[i]
+    }' $f
+done > mean_coverage_per_chrom_pop2.txt
+
+
+### chrom=$(echo $f | grep -oP 'chrom\d+') - extracts chromosome label followed by one or more digits and prints only the match. P- perl style regex
+## sorts ouput. n sorts numerically, k2 sorts second field (alphebetically and then numerically). t'm' sets M in chrom as the end or delimiter (cutoff)
+
+head mean_coverage_per_chrom_pop.txt
+# Output: chrom  pop_index  mean_depth
+##output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
+
+
+##Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
+
+awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
+##Check that it worked
+cat sample_names.txt
+##Now join the files 
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+  sample_names.txt mean_coverage_per_chrom_pop.txt \
+  > mean_coverage_named.txt
+
+# Output: chrom  sample_name  mean_depth 
+head mean_coverage_named.txt
+##Showing us BAT49 has the worst depth coverage (~30) 
+##conpared to lotis (~40-50) and TBY51~(40-50)
+##to check coverage for each population: grep BAT49 mean_coverage_named.txt
+
+##Chromosome by population matrix (##rows= chrom, columns= pops)
+
+
+###Fixed this by combining ad 1 and ad2
+
+# Confirm both sets exist
+ls ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt | wc -l
+ls ad2_beastfilteredV2_fff_o_lycpool_chrom*.txt | wc -l
+
+# Confirm row counts match between ad1 and ad2 for a few chromosomes
+wc -l ad1_beastfilteredV2_fff_o_lycpool_chrom1.txt \
+       ad2_beastfilteredV2_fff_o_lycpool_chrom1.txt \
+       ad1_beastfilteredV2_fff_o_lycpool_chrom10.txt \
+       ad2_beastfilteredV2_fff_o_lycpool_chrom10.txt
+
+##these should have the same number as their counterparts
+
+###Mean total coverage per chrom per sample
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    f2=$(echo $f | sed 's/ad1/ad2/')
+    paste $f $f2 | awk -v chrom="$chrom" -v ncol=27 '{
+        for (i=1; i<=ncol; i++) {
+            sum[i] += $i + $(i+ncol)
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=ncol; i++)
+            print chrom, i, sum[i]/count[i]
+    }'
+done > mean_coverage_total_postfilter.txt
+
+head mean_coverage_total_postfilter.txt
+
+### Adding sample names 
+awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
+##Check that it worked
+cat sample_names.txt
+##Now join the files 
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+sample_names.txt mean_coverage_total_postfilter.txt \
+mean_coverage_total_postfilter.txt
+
+head mean_coverage_total_postfilter.txt
+
+### Build coverage matrix 
+
+
+echo -e "chrom\t$(awk '{print $1}' IDs.txt | tr '\n' '\t' | sed 's/\t$//')" > coverage_matrix_postfilter.txt
+
+# Matrix
+awk '
+{
+    val[$1][$2] = $3
+    pops[$2] = 1
+}
+END {
+    n = asorti(pops, poplist)
+    for (c = 1; c <= 23; c++) {
+        chrom = "chrom" c
+        printf chrom
+        for (i = 1; i <= n; i++)
+            printf "\t" val[chrom][poplist[i]]
+        printf "\n"
+    }
+}' mean_coverage_total_postfilter.txt >> coverage_matrix_postfilter.txt
+
+cat coverage_matrix_postfilter.txt
+
+
+###prefiltered
+
+total_pre=$(wc -l ad1_fff_o_lycpool_chrom*.txt | grep total | awk '{print $1}')
+echo $total_pre
+
+for f in ad1_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    f2=$(echo $f | sed 's/ad1/ad2/')
+    paste $f $f2 | awk -v chrom="$chrom" -v ncol=27 '{
+        for (i=1; i<=ncol; i++) {
+            sum[i] += $i + $(i+ncol)
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=ncol; i++)
+            print chrom, i, sum[i]/count[i]
+    }'
+done > mean_coverage_total_prefilter.txt
+
+##adding pop names
+awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
+##Check that it worked
+cat sample_names.txt
+##Now join the files 
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+sample_names.txt mean_coverage_total_prefilter.txt \
+mean_coverage_total_prefilter.txt
+
+head mean_coverage_total_prefilter.txt
+
+##matrix
+awk '
+{
+    val[$1][$2] = $3
+    pops[$2] = 1
+}
+END {
+    n = asorti(pops, poplist)
+    for (c = 1; c <= 23; c++) {
+        chrom = "chrom" c
+        printf chrom
+        for (i = 1; i <= n; i++)
+            printf "\t" val[chrom][poplist[i]]
+        printf "\n"
+    }
+}' mean_coverage_total_prefilter.txt >> coverage_matrix_prefilter.txt
+
+cat coverage_matrix_prefilter.txt
+
+####Post and pre filtering SnP counts and proportions 
+
+###find the totals: 
+For pre filtered: wc -l beastfilteredsnps_fff_o_lycpool_chrom*.txt
+15387914
+
+total_pre=15387914
+
+for f in beastfilteredsnps_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total_pre" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions_prefilter.txt
+
+cat snp_counts_proportions_prefilter.txt
+
+
+###and Post filtereed: wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt
+12280
+## Find props
+
+total_post=12280
+
+for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total_post" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions_postfilter.txt
+
+cat snp_counts_proportions_postfilter.txt
+
+
+
+get rid of BAT49
+set a min for lotis and tomboy (10x) and an AVERAGE min for the rest- mean of 20x and below 500
+don't include lotis and tomboy in average- maybe
+check for outside of the bell (multicopy)- knock out top few percent 
+still need to do thinning of snps beast
 
