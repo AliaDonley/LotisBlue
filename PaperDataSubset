@@ -2370,14 +2370,103 @@ save(list=ls(), file="snps_maxFixed.rdat")
 
 
 # In R - how many SNPs have NO missing data per chromosome?
-library(data.table)
-for(i in 1:23){
-    ifile <- paste("text_chrom", i, ".fasta", sep="")
-    dat <- fread(ifile, header=FALSE)
-    miss <- apply(dat==5, 2, mean)
-    complete <- sum(miss == 0)
-    cat("Chrom", i, "- SNPs with no missing data:", complete, "\n")
-}
+
 
 ## Number 2- proportion for all chromosomes (4-6k)
+
+
+## had to find proportion first:
+in R:
+counts <- c(35697,32239,29561,31106,37354,28824,28523,30358,23719,
+            28649,27816,26005,29827,22933,27622,25948,27168,24320,
+            29748,22991,21464,17048,23510)
+
+total_target <- 6000
+props <- counts / sum(counts)
+per_chrom <- floor(props * total_target)
+per_chrom
+sum(per_chrom)
+
+6000/632430
+Prop= .00949
+
+GetSNPSubsetMax.R
+
+library(data.table)
+miss<-vector("list",23)
+for(i in 1:23){
+        ifile<-paste("text_chrom",i,".fasta",sep="")
+        dat<-fread(ifile,header=FALSE)
+        miss[[i]]<-apply(dat==5,2,mean)
+
+}
+## retain 6k snps each  with the appropriate conditions
+keepSNPs<-vector("list",23)
+prop<-0.00949
+
+for(i in 1:23){
+        xx<-which(miss[[i]]==0) ## no missing data
+        keepSNPs[[i]]<-sort(sample(xx,floor(length(miss[[i]])*prop),replace=FALSE))
+}
+
+for(i in 1:23){
+        out<-paste("keepSNPs_maxProp_chrom",i,sep="")
+        write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
+}
+save(list=ls(),file="snps_maxProp.rdat")
+
+
+SubSetFasta.pl
+# this subsets and concatenates a set of SNPs from fasta
+
+foreach $i (1..23){
+	open(IN,"keepSNPs_maxProp_chrom$i") or die "failed to open snps file $i\n";
+	#open(IN,"keepSNPs_chrom$i") or die "failed to open snps file $i\n";
+	$j = 0;
+	while(<IN>){
+		chomp;
+		push (@{$snps[$i]},$_);
+	}
+	close(IN);
+}
+
+open(OUT, ">lyc_genomemax_noBAT49.fasta") or die "failed to write\n";
+
+%seq;
+foreach $i (1..23){
+	open(IN,"BEAST_chrom_noBAT49_$i.fasta") or die "failed to open snps file $i\n";
+	while(<IN>){
+		chomp;
+		if(m/^>(\S+)/){
+			$id = $1;
+			if($i == 1){
+				@{$seq{$id}} = ();
+			}
+		} else {
+			foreach $snp (@{$snps[$i]}){
+				$c = substr $_,$snp-1, 1;
+				unless(length($c)==1){
+					print "$c\n";
+				}
+				push(@{$seq{$id}}, $c);
+			}
+		}
+	}
+	close(IN);
+}
+
+foreach $pop (sort keys %seq){
+	$str = join("",@{$seq{$pop}});
+	unless($pop =~ m/rep/){
+		$pop =~ s/Lyc-//;
+		##$pop =~ s/\d+//;
+		print OUT ">$pop\n";
+		print OUT "$str\n";
+	}
+}
+close(OUT);
+
+
+
+
 
