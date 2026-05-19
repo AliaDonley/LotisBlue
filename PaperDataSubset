@@ -12,7 +12,12 @@ c
 
 
 
-
+for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
+    chrom=$(echo $f | grep -oP '\d+(?=\.fasta)')
+    nchar=$(grep -v ">" $f | head -1 | tr -d '\n' | wc -c)
+    size=$(du -sh $f | cut -f1)
+    echo -e "chrom${chrom}\t${nchar}\t${size}"
+done | sort -t'm' -k2 -n
 
 
 
@@ -2323,3 +2328,56 @@ for(i in 1:N){
         cat(SS1, "\n", file=out, append=TRUE, sep="")
     }
 }
+
+
+
+
+
+
+
+### for thinning for BEAST: need to thin somewhere between .12 and .35 given chrom size. Trying two options:
+
+## Number 1- fixed number of snps per chrom
+
+library(data.table)
+miss <- vector("list", 23)
+for(i in 1:23){
+    ifile <- paste("text_max_chrom", i, ".fasta", sep="")
+    dat <- fread(ifile, header=FALSE)
+    miss[[i]] <- apply(dat==5, 2, mean)
+}
+
+## retain exactly 5000 SNPs with no missing data
+keepSNPs <- vector("list", 23)
+target <- 5000
+
+for(i in 1:23){
+    xx <- which(miss[[i]] == 0)  ## no missing data
+    cat("Chrom", i, "- SNPs with no missing data:", length(xx), "\n")
+    n_keep <- min(target, length(xx))  ## in case fewer than 5000 available
+    keepSNPs[[i]] <- sort(sample(xx, n_keep, replace=FALSE))
+}
+
+for(i in 1:23){
+    out <- paste("keepSNPs_max_chrom", i, sep="")
+    write.table(keepSNPs[[i]], file=out, row.names=FALSE, col.names=FALSE, quote=FALSE)
+}
+save(list=ls(), file="snps_maxFixed.rdat")
+
+
+
+
+
+
+# In R - how many SNPs have NO missing data per chromosome?
+library(data.table)
+for(i in 1:23){
+    ifile <- paste("text_chrom", i, ".fasta", sep="")
+    dat <- fread(ifile, header=FALSE)
+    miss <- apply(dat==5, 2, mean)
+    complete <- sum(miss == 0)
+    cat("Chrom", i, "- SNPs with no missing data:", complete, "\n")
+}
+
+## Number 2- proportion for all chromosomes (4-6k)
+
