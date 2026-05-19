@@ -2269,3 +2269,57 @@ END {
 }' mean_coverage_total_noBAT49_named.txt >> coverage_matrix_noBAT49.txt
 
 cat coverage_matrix_noBAT49.txt
+
+
+##########mkBeast.R
+
+
+# check what files get picked up with new pattern
+list.files(pattern="ad1_beastfilteredV2_fff_o_lycpool_chrom.*noBAT49")
+
+# Check IDs file
+read.table("IDs.txt", header=FALSE)
+library(data.table)
+
+a1f <- list.files(pattern="ad1_beastfilteredV2_fff_o_lycpool_chrom.*noBAT49")
+a1f <- a1f[1:23]
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- list.files(pattern="beastfilteredsnpsV2_fff_o_lycpool_chrom.*noBAT49")
+asnp <- asnp[1:23]
+
+N <- length(a1f)
+ids <- read.table("sample_names_noBAT49.txt", header=FALSE)
+
+# Extract chromosome numbers from filenames
+temp <- gsub("ad1_beastfilteredV2_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49.txt", "", temp)
+
+J_total <- nrow(ids)  # 26 samples
+
+for(i in 1:N){
+    cat(i, "\n")
+    out <- paste("BEAST_chrom_noBAT49_", chrom[i], ".fasta", sep="")
+    
+    a1 <- as.matrix(fread(a1f[i], header=F))
+    a2 <- as.matrix(fread(a2f[i], header=F))
+    n <- a1 + a2
+    p <- a2/(a1 + a2)  ## non-ref allele frequency
+    p[n < 5] <- NA
+    
+    J <- dim(p)[2]  # should be 26
+    L <- dim(p)[1]  # number of SNPs for this chromosome
+    
+    snps <- as.data.frame(fread(asnp[i], header=FALSE))
+    
+    for(j in 1:J){
+        nx <- as.numeric(p[,j] > .5) + 1
+        ss <- rep("N", L)
+        jx <- which(is.na(p[,j]) == FALSE)
+        for(l in jx){
+            ss[l] <- snps[l, nx[l]]
+        }
+        SS1 <- paste(ss, collapse="")
+        cat(">", ids[j,2], "\n", file=out, append=TRUE, sep="")
+        cat(SS1, "\n", file=out, append=TRUE, sep="")
+    }
+}
