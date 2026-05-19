@@ -2092,3 +2092,180 @@ don't include lotis and tomboy in average- maybe
 check for outside of the bell (multicopy)- knock out top few percent 
 still need to do thinning of snps beast
 
+
+
+###checking contents of origional files 
+
+# Confirm column order in original ad1 file
+head -1 ad1_fff_o_lycpool_chrom1.txt
+
+# Check original SNP file
+head -1 beastfilteredsnps_fff_o_lycpool_chrom1.txt
+
+# Confirm your VCF header column order
+grep "^#CHROM" fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | nl | head -15
+
+## made new directory for no BAT49
+# Remove column 3 from all original ad1, ad2, and SNP files
+
+for f in ../ad1_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4- $f > ad1_fff_o_lycpool_${chrom}_noBAT49.txt
+done
+
+for f in ../ad2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4- $f > ad2_fff_o_lycpool_${chrom}_noBAT49.txt
+done
+
+for f in ../beastfilteredsnps_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4- $f > beastfilteredsnps_fff_o_lycpool_${chrom}_noBAT49.txt
+done
+
+### Verify that it worked
+## Check columns - should be 26
+awk '{print NF}' ad1_fff_o_lycpool_chrom1_noBAT49.txt | sort -u
+## Check SNP file is still 2 columns
+awk '{print NF}' beastfilteredsnps_fff_o_lycpool_chrom1_noBAT49.txt | sort -u
+## Rows could match origionals 
+wc -l ad1_fff_o_lycpool_chrom1_noBAT49.txt ../ad1_fff_o_lycpool_chrom1.txt
+
+# Check original column order from VCF
+grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | nl | grep -E "LOTIS|TBY51|TBY11"
+
+# The VCF and .txt files have different headers, so need to convert .vcf to .txt. Subtract metacolumns up to 9 (format)
+# to get to the populations. 
+
+## To check that the positions of the populations, run:
+
+grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
+    tail -n +10 | \
+    grep -v "BAT49" | \
+    nl
+
+### R code to filter
+## Lotis and TBY51, min coverage of 10
+
+library(data.table)
+
+lotis_col <- 13
+tby51_col <- 23
+other_cols <- setdiff(1:26, c(lotis_col, tby51_col))
+
+for (chrom in 1:23) {
+  cat("Processing chrom", chrom, "\n")
+  
+  a1 <- as.matrix(fread(paste0("ad1_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), header=FALSE))
+  a2 <- as.matrix(fread(paste0("ad2_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), header=FALSE))
+  snps <- as.matrix(fread(paste0("beastfilteredsnps_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), header=FALSE))
+  
+  cov <- a1 + a2
+  
+  keep <- apply(cov, 1, function(x) {
+    lotis_ok <- x[lotis_col] >= 10 & x[lotis_col] <= 500
+    tby51_ok <- x[tby51_col] >= 10 & x[tby51_col] <= 500
+    others_ok <- mean(x[other_cols]) >= 20 & all(x[other_cols] <= 500)
+    lotis_ok & tby51_ok & others_ok
+  })
+  
+  cat("Total SNPs:", length(keep), "\n")
+  cat("SNPs kept:", sum(keep), "\n")
+  cat("SNPs removed:", sum(!keep), "\n\n")
+  
+  a1_filtered <- a1[keep,]
+  a2_filtered <- a2[keep,]
+  snps_filtered <- snps[keep,]
+  
+  fwrite(as.data.table(a1_filtered), 
+         file=paste0("ad1_beastfilteredV2_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), 
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(a2_filtered), 
+         file=paste0("ad2_beastfilteredV2_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), 
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(snps_filtered), 
+         file=paste0("beastfilteredsnpsV2_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), 
+         sep="\t", col.names=FALSE)
+}
+
+check values:
+## Total pre-filtered snps: 15,387,914
+## Total post-filter snps kept: 632,430
+## Total removed: 14,784,484 (95% ish...)
+
+# which files are being counted
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt
+# count only the noBAT49 files
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49.txt | tail -1
+# non-noBAT49 files separately
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt | grep -v "noBAT49"
+
+## Snp counts and proportion
+# SNP counts and proportions
+
+total=632430
+
+for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions_noBAT49.txt
+
+cat snp_counts_proportions_noBAT49.txt
+
+# Mean total coverage (ad1 + ad2) per chromosome per sample
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*_noBAT49.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    f2=$(echo $f | sed 's/ad1/ad2/')
+    paste $f $f2 | awk -v chrom="$chrom" -v ncol=26 '{
+        for (i=1; i<=ncol; i++) {
+            sum[i] += $i + $(i+ncol)
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=ncol; i++)
+            print chrom, i, sum[i]/count[i]
+    }'
+done > mean_coverage_total_noBAT49.txt
+
+head mean_coverage_total_noBAT49.txt
+
+# Regenerate sample names without BAT49
+grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
+    tail -n +10 | \
+    grep -v "BAT49" | \
+    nl -nrz -w1 -v1 > sample_names_noBAT49.txt
+
+cat sample_names_noBAT49.txt
+
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+    sample_names_noBAT49.txt mean_coverage_total_noBAT49.txt \
+    > mean_coverage_total_noBAT49_named.txt
+
+head mean_coverage_total_noBAT49_named.txt
+
+# Header
+echo -e "chrom\t$(grep -v "BAT49" ../fff_o_lycpool_chrom1.vcf | grep "^#CHROM" | \
+    tr '\t' '\n' | tail -n +10 | grep -v "BAT49" | tr '\n' '\t' | sed 's/\t$//')" \
+    > coverage_matrix_noBAT49.txt
+
+# Matrix
+awk '
+{
+    val[$1][$2] = $3
+    pops[$2] = 1
+}
+END {
+    n = asorti(pops, poplist)
+    for (c = 1; c <= 23; c++) {
+        chrom = "chrom" c
+        printf chrom
+        for (i = 1; i <= n; i++)
+            printf "\t" val[chrom][poplist[i]]
+        printf "\n"
+    }
+}' mean_coverage_total_noBAT49_named.txt >> coverage_matrix_noBAT49.txt
+
+cat coverage_matrix_noBAT49.txt
