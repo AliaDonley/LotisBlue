@@ -72,26 +72,131 @@ perl BwaMemFork.pl ../F22FTSUSAT0310-01_LYCgpswR/soapnuke/clean/*/*1.fq.gz
 
 
 Which runs
+```perl
+#!/usr/bin/perl
+#
+# alignment with bwa mem 
+#
 
 
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
+my $genome = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
 
+FILES:
+foreach $fq1 (@ARGV){
+	$pm->start and next FILES; ## fork
+	$fq2 = $fq1;
+	$fq2 =~ s/_1\.fq\.gz/_2.fq.gz/ or die "failed substitution for $fq1\n";
+        $fq1 =~ m/clean\/([A-Za-z0-9]+)/ or die "failed to match id $fq1\n";
+	$ind = $1;
+	$fq1 =~ m/([A-Za-z_\-0-9]+)_1\.fq\.gz$/ or die "failed match for file $fq1\n";
+	$file = $1;
+        system "/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem -t 1 -k 19 -r 1.5 -R \'\@RG\\tID:Lyc-"."$ind\\tLB:Lyc-"."$ind\\tSM:Lyc-"."$ind"."\' $genome $fq1 $fq2 | samtools sort -@ 2 -O BAM -o $ind"."_$file.bam - && samtools index -@ 2 $ind"."_$file.bam\n";
 
+	$pm->finish;
+}
+```
 
 
 We used samtools (version ##) to sort and index the alignments. Following this, the .bam files for each population were merged using samtools (version ##). This was submitted using the shell script:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=merge
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
+
+module load samtools
+##Version: 1.16 (using htslib 1.16)
+
+cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignment
+
+perl ../Scripts/MergeFork.pl
+``` 
+Which runs:
+```pl
+#!/usr/bin/perl
+#
+# merge alignments for each population sample with samtools version XX 
+#
 
 
-Which runs: 
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
 
+open(IDS,"pids.txt");
+while(<IDS>){
+	chomp;
+	push(@IDs,$_);
+}
+close(IDS);
 
+FILES:
+foreach $id (@IDs){
+	$pm->start and next FILES; ## fork
+        system "samtools merge -c -p -o Merged/$id.bam $id"."_*.bam\n";
+	system "samtools index -@ 2 Merged/$id.bam\n";
+	$pm->finish;
+}
 
+$pm->wait_all_children;
+```
 # Removing PCR duplicates
 We used samtools (version ##) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=dedup
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
 
-Which runs:
+module load samtools
+##Version: 1.16 (using htslib 1.16)
 
 
+cd /scratch/general/nfs1/dedup
 
+perl /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Scripts/RemoveDupsFork.pl *bam
+```
+Which runs
+```pl
+#!/usr/bin/perl
+#
+# PCR duplicate removal with samtools
+#
+
+
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
+
+FILES:
+foreach $bam (@ARGV){
+	$pm->start and next FILES; ## fork
+	$bam =~ m/^([A-Za-z0-9]+)/ or die "failed to match $bam\n";
+	$base = $1;
+	system "samtools collate -o co_$base.bam $bam /scratch/general/nfs1/dedup/t$bam\n";
+	system "samtools fixmate -m co_$base.bam fix_$base.bam\n";
+	system "samtools sort -o sort_$base.bam fix_$base.bam\n";
+	## using default definition of dups
+	## measure positions based on template start/end (default). = -m t
+	system "markdup -T /scratch/general/nfs1/dedup -r sort_$base.bam dedup_$base.bam\n";
+	$pm->finish;
+}
+
+$pm->wait_all_children;
+```
 # MapDamage
 We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. To do this we used SubMapDamFork.sh
 
@@ -99,6 +204,132 @@ We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA 
 Which runs MapDamFork.pl
 
 
+
+# Variant Calling
+
+Variants were called with bcftools (version##). We did not perform INDEL realignment--WHY?
+The following submission script was submitted:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=bcf_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /scratch/general/nfs1/dedup
+
+perl /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Scripts/BcfForkLg.pl chrom*list 
+```
+FIX TO MY PATH
+
+which runs
+```pl
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+foreach $chrom (@ARGV){
+	$pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+	$out = "o_lycpool_chrom$1";
+	system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
+	$pm->finish;
+
+}
+
+$pm->wait_all_children;
+```
+Each chromosome scaffold is being processes seperately as a chrom*list
+
+The variant data can be found in: 
+
+We filtered the .vcf file with GATK (version ##), keeping only those (bases or snps)? with mapping quality>30, depth>1350, and bias scores less than +/-3. This was done with [VarFiltFork2.pl](VarFiltFork2.pl)
+```pl
+#!/usr/bin/perl
+#
+# filter vcf with GATK and tabix 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+
+
+my $ref = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+my $gatk = "/uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar"; 
+
+
+foreach $vcf (@ARGV){
+        $pm->start and next; ## fork
+        $in = $vcf; ##don't need to gunzip here..?
+        $in =~ s/\.gz//; ## drops .gz from the filename
+        $o = "fff_$vcf"; ## outfile with name fff_xxxx.vcf.gz ##if not zipped, switch variable to $in      
+
+        system "~/bin/tabix $vcf\n"; ##tabix needs bgzipped (should be .gz)
+        system "bgzip -d $vcf\n"; ## unzipe file- correct
+        
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar IndexFeatureFile -I $in\n";
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar VariantFiltration -R $ref -V $in -O $o --filter-name \"bqbz\" --filter-expression \"BQBZ > 3.0 || BQBZ < -3.0\" --filter-name \"mqbz\" --filter-expression \"MQBZ > 3.0 || MQBZ < -3.0\" --filter-name \"rpbz\" --filter-expression \"RPBZ > 3.0 || RPBZ < -3.0\" --filter-name \"depth\" --filter-expression \"DP < 1350\" --filter-name \"mapping\" --filter-expression \"MQ < 30\" --verbosity ERROR\n";
+        system "bgzip -d $o\n";
+
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+```
+
+Allele depths were extracted from the filtered .vcf files. INDELS and multialleleic data were dropped here too. 
+[AD.sh](AD.sh)
+```sh
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+```
+output:
+
+We also grapped the SNP information with [SNP.sh](SNP.sh)
+```sh
+#!/usr/bin/bash
+#
+# extract alleles from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+	echo "Processing $f"
+	out="$(echo $f | sed -e 's/vcf/txt/')"
+	echo "Output is snps_$out"
+	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out 
+done
+```
+# Population genetic structure
 
 
 
