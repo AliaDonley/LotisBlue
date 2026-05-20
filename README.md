@@ -16,10 +16,12 @@ The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned
 
 I aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
 I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. 
-I set of the alignment using the submission script [SubAlign.sh](SubAlign.sh)
+## index genome with bwa-mem2
+/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
+I set of the alignment using the submission script
 
 Which runs
-[SubAlign.pl](SubAlign.pl)
+
 
 
 
