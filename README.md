@@ -15,10 +15,57 @@ The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned
 # DNA sequence Alignment
 
 I aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
-I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome
+I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. 
+I set of the alignment using the submission script SubAlign......
+
+Which runs
 
 
-#Softclipping Counting and Filtering of Real Dataset
+
+
+
+
+We used samtools (version ##) to sort and index the alignments. Following this, the .bam files for each population were merged using samtools (version ##). This was submitted using the shell script:
+
+
+Which runs: 
+
+
+
+# Removing PCR duplicates
+We used samtools (version ##) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
+
+Which runs:
+
+
+
+# MapDamage
+We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. To do this we used SubMapDamFork.sh
+
+
+Which runs MapDamFork.pl
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##Counting Softclipping for real dataset
 
