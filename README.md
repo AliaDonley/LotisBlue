@@ -99,7 +99,8 @@ foreach $fq1 (@ARGV){
 	$pm->finish;
 }
 ```
-
+## Zach aligned ^^^
+All downstream analysis can be found in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 We used samtools (version ##) to sort and index the alignments. Following this, the .bam files for each population were merged using samtools (version ##). This was submitted using the shell script:
 ```sh
