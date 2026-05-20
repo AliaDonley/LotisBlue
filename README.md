@@ -7,6 +7,13 @@ Raw pool-seq data currently in: /uufs/chpc.utah.edu/common/home/gompert-group5/d
 population    Samples(N)    Nominal taxon
 Insert table here
 
+| Population | Sample (n) | Species |
+|------------|------------|---------|
+| GNP        | GNP17 (56) | L. iads |
+|			 |			  |         |
+| HJ         | HJ20 (48)  | L. melissa |
+| HNV        | HNV17 (48) | JH (admixed) |
+
 The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
 
 #check report numbers here
