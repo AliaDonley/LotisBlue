@@ -50,7 +50,7 @@ I had access to the already indexed reference genome done by Zach Gompert which 
 /uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
 
 We set up the alignment using the submission script
-'''sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -68,7 +68,7 @@ cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignme
 
 perl BwaMemFork.pl ../F22FTSUSAT0310-01_LYCgpswR/soapnuke/clean/*/*1.fq.gz 
 
-'''
+```
 
 
 Which runs
