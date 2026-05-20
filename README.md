@@ -9,10 +9,33 @@ Insert table here
 
 | Population | Sample (n) | Species |
 |------------|------------|---------|
-| GNP        | GNP17 (56) | L. iads |
-|			 |			  |         |
+| ABM        | ABM20 (48) | L. melissa |
+| BAT		 | BAT20 (	  |         |
+| BCR        | BCR17 (48) | JH (admixed) |
+| BHP        | BHP19(48)  | L. melissa |
+| BKM        | BKM19 (33) | Warners (admixed) |
+| BTB	  	 | BTB17 (48) | JH (admixed) |
+| CLH        | CLH19 (36) | White Mt. (admixed) |
+| CP         | CP19  (48) | Sierra (admixed) |
+| EP         | EP19  (48) | Warners (admixed) |
+| GNP		 | GNP17 (56) | L. iads  |
 | HJ         | HJ20 (48)  | L. melissa |
 | HNV        | HNV17 (48) | JH (admixed) |
+| LOTIS      | LOTIS ()   | L. anna lotis |
+| LS		 | LS19 (48	  | L. anna |
+| MEN        | MEN12 (10) | L. argyrognomon (France) |
+| MR         | MR20 (48)  | Sierra (admixed) |
+| MTU        | MTU20 (48) | L. melissa |
+| SBW		 | SBW18 (20) | L. iads (Alaska) |
+| SHC        | SHC11 (46) | L. anna ricei |
+| SIN        | SIN10 (48) | L. melissa |
+| SUV        | SUV20 (51) | L. melissa|
+| TBY		 | TBY51 ()	  | L. idas sublivens |
+| TBY        | TBY11 (24) | L. idas sublivens|
+| TIC        | TIC19 (48) | Sierra (admixed) |
+| VE         | VE20 (48)  | L. melissa |
+| YG		 | YG20 (48)  | L. anna |
+
 
 The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
 
