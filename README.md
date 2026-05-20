@@ -1,5 +1,22 @@
 Divergence time estimation for the extinct Lotis blue butterfly. Using Zach Gompert's LycAdmixMosaic method for genomic analysis and population structure analysis. 
 
+#Data
+
+Raw pool-seq data currently in: /uufs/chpc.utah.edu/common/home/gompert-group5/data/lycaeides_poolseq/Alignment. The set of samples I used here are form a single round of sequencing
+
+population    Samples(N)    Nominal taxon
+Insert table here
+
+The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
+
+#check report numbers here
+
+
+#DNA sequence Alignment
+
+I aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
+I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome
+
 
 #Softclipping Counting and Filtering of Real Dataset
 
