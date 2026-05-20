@@ -1,10 +1,9 @@
 Divergence time estimation for the extinct Lotis blue butterfly. Using Zach Gompert's LycAdmixMosaic method for genomic analysis and population structure analysis. 
 
 
-##Softclipping Counting and Filtering of Real Dataset
+#Softclipping Counting and Filtering of Real Dataset
 
 ##Counting Softclipping for real dataset
-
 
 for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
     chrom=$(echo $f | grep -oP '\d+(?=\.fasta)')
@@ -14,7 +13,7 @@ for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
 done | sort -t'm' -k2 -n
 
 
-##Mapdamage on Real Dataset 
+#Mapdamage on Real Dataset 
 
 ##MapDamFork.pl
 #!/usr/bin/perl
@@ -58,13 +57,6 @@ module load bwa
 cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
 
 perl MapDamFork.pl *bam
-
-
-
-
-
-
-
 
 ##RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET)
 ##I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
