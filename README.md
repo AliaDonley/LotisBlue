@@ -19,7 +19,7 @@ I had access to the already indexed reference genome done by Zach Gompert which 
 I set of the alignment using the submission script [SubAlign.sh](SubAlign.sh)
 
 Which runs
-
+[SubAlign.pl](SubAlign.pl)
 
 
 
