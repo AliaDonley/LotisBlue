@@ -42,13 +42,14 @@ The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned
 #check report numbers here
 
 
-# DNA sequence Alignment
+# DNA Sequence Alignment
 
-I aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
+We aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
 I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. 
 ## index genome with bwa-mem2
+```sh
 /uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
-
+```
 We set up the alignment using the submission script
 ```sh
 #!/bin/sh
@@ -148,7 +149,7 @@ foreach $id (@IDs){
 
 $pm->wait_all_children;
 ```
-# Removing PCR duplicates
+# Removing PCR Duplicates
 We used samtools (version ##) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
 ```sh
 #!/bin/sh
@@ -329,7 +330,7 @@ do
 	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out 
 done
 ```
-# Population genetic structure
+# Population Genetic Structure
 
 
 
