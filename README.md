@@ -11,9 +11,9 @@ The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned
 
 #check report numbers here
 
-
+#
 #DNA sequence Alignment
-
+#
 I aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
 I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome
 
