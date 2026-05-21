@@ -3306,3 +3306,32 @@ cp ../noBAT49/SubBeast.sh .
 Ran using SubBeast.sh, changed the input and output to fit this run
 
 
+
+
+
+
+
+
+# An attempt at demographic inference
+
+Need to generate an allele frequency file from my allele depth files. 
+Do I want to try this with dadi and then feed that file into moments?
+Can I use dadi language in moments?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
