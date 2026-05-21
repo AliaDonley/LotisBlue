@@ -3080,4 +3080,122 @@ Run with perl mkNumericFasta.pl
 wc -l text_chrom_noTBY51_1.fasta  # should be 25
 head -1 text_chrom_noTBY51_1.fasta | wc -w  # should be 159408
 ```
+Calculate the new proportion for ~6k snps
+in R
+```R
+counts <- c(159408, 139747, 123916, 130047, 151460, 125298, 121332,
+            130806, 98258, 115154, 117189, 106853, 112221, 99622,
+            104960, 100377, 103636, 90251, 108431, 90845, 77426,
+            57636, 97589)
 
+total_target <- 6000
+prop <- total_target / sum(counts)
+cat("prop =", prop, "\n")
+
+props <- counts / sum(counts)
+per_chrom <- floor(props * total_target)
+per_chrom
+sum(per_chrom)
+##sum= 5990
+```
+SNP subsetting (random sampling to get snps down to about 6K)
+In R
+```R
+library(data.table)
+
+miss <- vector("list", 23)
+for(i in 1:23){
+    ifile <- paste("text_chrom_noTBY51_", i, ".fasta", sep="")
+    dat <- fread(ifile, header=FALSE)
+    miss[[i]] <- apply(dat==5, 2, mean)
+}
+
+prop <- 6000 / 2562462  # = 0.002341
+
+keepSNPs <- vector("list", 23)
+for(i in 1:23){
+    xx <- which(miss[[i]] == 0)
+    n_keep <- floor(length(miss[[i]]) * prop)
+    cat("Chrom", i, "- keeping:", n_keep, "from", length(xx), "complete SNPs\n")
+    keepSNPs[[i]] <- sort(sample(xx, n_keep, replace=FALSE))
+}
+
+for(i in 1:23){
+    out <- paste("keepSNPs_maxProp_noTBY51_chrom", i, sep="")
+    write.table(keepSNPs[[i]], file=out, row.names=FALSE, col.names=FALSE, quote=FALSE)
+}
+save(list=ls(), file="snps_maxProp_noTBY51.rdat")
+```
+Can run in R or as Rscript GetSNPSubsetMax_noTBY51.R
+output- keepSNPs_maxProp_noTBY51_chrom*
+Check with: wc -l keepSNPs_maxProp_noTBY51_chrom* or ls -lh
+
+Run SubSetFasta.pl
+```pl
+#!/usr/bin/perl
+#
+# this subsets and concatenates a set of SNPs from fasta
+
+foreach $i (1..23){
+	open(IN,"keepSNPs_maxProp_noTBY51_chrom$i") or die "failed to open snps file $i\n";
+	#open(IN,"keepSNPs_chrom$i") or die "failed to open snps file $i\n";
+	$j = 0;
+	while(<IN>){
+		chomp;
+		push (@{$snps[$i]},$_);
+	}
+	close(IN);
+}
+
+open(OUT, ">lyc_genomemax_noBAT49_noTBY51.fasta") or die "failed to write\n";
+
+%seq;
+foreach $i (1..23){
+	open(IN,"BEAST_chrom_noBAT49_noTBY51_$i.fasta") or die "failed to open snps file $i\n";
+	while(<IN>){
+		chomp;
+		if(m/^>(\S+)/){
+			$id = $1;
+			if($i == 1){
+				@{$seq{$id}} = ();
+			}
+		} else {
+			foreach $snp (@{$snps[$i]}){
+				$c = substr $_,$snp-1, 1;
+				unless(length($c)==1){
+					print "$c\n";
+				}
+				push(@{$seq{$id}}, $c);
+			}
+		}
+	}
+	close(IN);
+}
+
+foreach $pop (sort keys %seq){
+	$str = join("",@{$seq{$pop}});
+	unless($pop =~ m/rep/){
+		$pop =~ s/Lyc-//;
+		##$pop =~ s/\d+//;
+		print OUT ">$pop\n";
+		print OUT "$str\n";
+	}
+}
+close(OUT);
+```
+Verify
+```sh
+#pops
+grep ">" lyc_genomemax_noBAT49_noTBY51.fasta
+###snp total
+grep -v ">" lyc_genomemax_noBAT49_noTBY51.fasta | head -1 | wc -c
+```
+Convert to nexus in bash
+```sh
+seqmagick convert --output-format nexus --alphabet dna \
+    lyc_genomemax_noBAT49_noTBY51.fasta \
+    lyc_genomemax_noBAT49_noTBY51.nex
+#check
+head -10 lyc_genomemax_noBAT49_noTBY51.nex
+```
+cp 
