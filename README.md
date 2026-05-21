@@ -3198,4 +3198,8 @@ seqmagick convert --output-format nexus --alphabet dna \
 #check
 head -10 lyc_genomemax_noBAT49_noTBY51.nex
 ```
-cp 
+# Run BEAST
+cp ../noBAT49/SubBeast.sh .
+Ran using SubBeast.sh, changed the input and output to fit this run
+
+
