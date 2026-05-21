@@ -2788,3 +2788,296 @@ foreach $pop (sort keys %seq){
 	}
 }
 close(OUT);
+
+
+
+# Removing BAT49 and TBY51
+this can all be found in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/noBAT49_noTBY51
+## Removing both populations
+# Remove columns 3 and 24 (BAT49 and TBY51) from all original ad1, ad2, and SNP files
+```sh
+for f in ../ad1_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4-23,25- $f > ad1_fff_o_lycpool_${chrom}_noBAT49_noTBY51.txt
+done
+
+for f in ../ad2_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4-23,25- $f > ad2_fff_o_lycpool_${chrom}_noBAT49_noTBY51.txt
+done
+
+for f in ../beastfilteredsnps_fff_o_lycpool_chrom*.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    cut -f1-2,4-23,25- $f > beastfilteredsnps_fff_o_lycpool_${chrom}_noBAT49_noTBY51.txt
+done
+```
+Verify
+```sh
+#should be 25 columns
+awk '{print NF}' ad1_fff_o_lycpool_chrom1_noBAT49_noTBY51.txt | sort -u
+#snp file should be 2 columns
+awk '{print NF}' beastfilteredsnps_fff_o_lycpool_chrom1_noBAT49_noTBY51.txt | sort -u
+# row counts should match origionals
+wc -l ad1_fff_o_lycpool_chrom1_noBAT49_noTBY51.txt ../ad1_fff_o_lycpool_chrom1.txt
+#check what column Lotis is
+grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
+>     tail -n +10 | \
+>     grep -v "BAT49" | \
+>     grep -v "TBY51" | \
+>     nl | grep "LOTIS"
+##column 13
+```
+Filter in R
+```R
+library(data.table)
+
+lotis_col <- 13
+other_cols <- setdiff(1:25, lotis_col)  # all 24 other pops
+
+for (chrom in 1:23) {
+  cat("Processing chrom", chrom, "\n")
+  
+  a1 <- as.matrix(fread(paste0("ad1_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"), header=FALSE))
+  a2 <- as.matrix(fread(paste0("ad2_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"), header=FALSE))
+  snps <- as.matrix(fread(paste0("beastfilteredsnps_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"), header=FALSE))
+  
+  cov <- a1 + a2
+  
+  keep <- apply(cov, 1, function(x) {
+    lotis_ok <- x[lotis_col] >= 10 & x[lotis_col] <= 500
+    others_ok <- mean(x[other_cols]) >= 20 & all(x[other_cols] <= 500)
+    lotis_ok & others_ok
+  })
+  
+  cat("Total SNPs:", length(keep), "\n")
+  cat("SNPs kept:", sum(keep), "\n")
+  cat("SNPs removed:", sum(!keep), "\n\n")
+  
+  a1_filtered <- a1[keep,]
+  a2_filtered <- a2[keep,]
+  snps_filtered <- snps[keep,]
+  
+  fwrite(as.data.table(a1_filtered),
+         file=paste0("ad1_beastfilteredV2_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"),
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(a2_filtered),
+         file=paste0("ad2_beastfilteredV2_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"),
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(snps_filtered),
+         file=paste0("beastfilteredsnpsV2_fff_o_lycpool_chrom", chrom, "_noBAT49_noTBY51.txt"),
+         sep="\t", col.names=FALSE)
+}
+```
+Check total in bash to make sure it makes sense
+```sh
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49_noTBY51.txt | tail -1
+```
+Total: 2562462 total
+
+Get snp counts and proportions, and mean coverage
+```sh
+# SNP counts and proportions
+total=2562462
+
+for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49_noTBY51.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions_noBAT49_noTBY51.txt
+
+cat snp_counts_proportions_noBAT49_noTBY51.txt
+```
+Now the mean
+```sh
+for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*_noBAT49_noTBY51.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    f2=$(echo $f | sed 's/ad1/ad2/')
+    paste $f $f2 | awk -v chrom="$chrom" -v ncol=25 '{
+        for (i=1; i<=ncol; i++) {
+            sum[i] += $i + $(i+ncol)
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=ncol; i++)
+            print chrom, i, sum[i]/count[i]
+    }'
+done > mean_coverage_total_noBAT49_noTBY51.txt
+
+head mean_coverage_total_noBAT49_noTBY51.txt
+```
+Add the pop names and build coverage matrix
+```sh
+# Generate sample names without BAT49 and TBY51
+grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
+    tail -n +10 | \
+    grep -v "BAT49" | \
+    grep -v "TBY51" | \
+    nl -nrz -w1 -v1 > sample_names_noBAT49_noTBY51.txt
+
+cat sample_names_noBAT49_noTBY51.txt
+
+awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
+    sample_names_noBAT49_noTBY51.txt mean_coverage_total_noBAT49_noTBY51.txt \
+    > mean_coverage_total_noBAT49_noTBY51_named.txt
+
+head mean_coverage_total_noBAT49_noTBY51_named.txt
+
+# Header
+echo -e "chrom\t$(grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
+    tail -n +10 | grep -v "BAT49" | grep -v "TBY51" | \
+    tr '\n' '\t' | sed 's/\t$//')" > coverage_matrix_noBAT49_noTBY51.txt
+
+# Matrix
+awk '
+{
+    val[$1][$2] = $3
+    pops[$2] = 1
+}
+END {
+    n = asorti(pops, poplist)
+    for (c = 1; c <= 23; c++) {
+        chrom = "chrom" c
+        printf chrom
+        for (i = 1; i <= n; i++)
+            printf "\t" val[chrom][poplist[i]]
+        printf "\n"
+    }
+}' mean_coverage_total_noBAT49_noTBY51_named.txt >> coverage_matrix_noBAT49_noTBY51.txt
+
+cat coverage_matrix_noBAT49_noTBY51.txt
+
+#check that it all looks good
+# all rows (chroms) should have exactly 26 fields (chrom + 25 pops)
+awk '{print NF, $1}' coverage_matrix_noBAT49_noTBY51.txt | sort -u
+```
+# BEAST and CASTER input files
+```sh
+# Copy scripts from noBAT49 dir
+cp ../noBAT49/filter_noBAT49.R .
+cp ../noBAT49/mkNumericFasta_noBAT49.pl .
+cp ../noBAT49/SubSetFasta.pl .
+cp ../noBAT49/GetSNPSubsetMax.R .
+```
+Run BEAST input in R
+```R
+library(data.table)
+
+a1f <- list.files(pattern="ad1_beastfilteredV2_fff_o_lycpool_chrom.*noBAT49_noTBY51")
+a1f <- a1f[1:23]
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- list.files(pattern="beastfilteredsnpsV2_fff_o_lycpool_chrom.*noBAT49_noTBY51")
+asnp <- asnp[1:23]
+
+N <- length(a1f)
+ids <- read.table("sample_names_noBAT49_noTBY51.txt", header=FALSE)
+
+temp <- gsub("ad1_beastfilteredV2_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49_noTBY51.txt", "", temp)
+
+for(i in 1:N){
+    cat(i, "\n")
+    out <- paste("BEAST_chrom_noBAT49_noTBY51_", chrom[i], ".fasta", sep="")
+    
+    a1 <- as.matrix(fread(a1f[i], header=F))
+    a2 <- as.matrix(fread(a2f[i], header=F))
+    n <- a1 + a2
+    p <- a2/(a1 + a2)
+    p[n < 5] <- NA
+    
+    J <- dim(p)[2]  # 25 samples
+    L <- dim(p)[1]
+    
+    snps <- as.data.frame(fread(asnp[i], header=FALSE))
+    
+    for(j in 1:J){
+        nx <- as.numeric(p[,j] > .5) + 1
+        ss <- rep("N", L)
+        jx <- which(is.na(p[,j]) == FALSE)
+        for(l in jx){
+            ss[l] <- snps[l, nx[l]]
+        }
+        SS1 <- paste(ss, collapse="")
+        cat(">", ids[j,2], "\n", file=out, append=TRUE, sep="")
+        cat(SS1, "\n", file=out, append=TRUE, sep="")
+    }
+}
+```
+Ran with mkBeastDat_noBAT49_noTBY51.R
+output: BEAST_chrom_nobat or tby
+Check sequence length and sample size
+```sh
+# Check 25 samples per file
+grep -c ">" BEAST_chrom_noBAT49_noTBY51_1.fasta
+
+# Check sequence length matches SNP count for chrom1 (159,408)
+grep -v ">" BEAST_chrom_noBAT49_noTBY51_1.fasta | head -1 | wc -c
+```
+Make CASTER input files
+```sh
+library(data.table)
+
+a1f <- list.files(pattern="ad1_beastfilteredV2_fff_o_lycpool_chrom.*noBAT49_noTBY51")
+a1f <- a1f[1:23]
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- list.files(pattern="beastfilteredsnpsV2_fff_o_lycpool_chrom.*noBAT49_noTBY51")
+asnp <- asnp[1:23]
+
+N <- length(a1f)
+ids <- read.table("sample_names_noBAT49_noTBY51.txt", header=FALSE)
+
+temp <- gsub("ad1_beastfilteredV2_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49_noTBY51.txt", "", temp)
+
+for(i in 1:N){
+    cat(i, "\n")
+    out <- paste("CAST_chrom_noBAT49_noTBY51_", chrom[i], ".fasta", sep="")
+    
+    a1 <- as.matrix(fread(a1f[i], header=F))
+    a2 <- as.matrix(fread(a2f[i], header=F))
+    n <- a1 + a2
+    p <- a2/(a1 + a2)
+    p[is.na(p)] <- 0.001
+    
+    J <- dim(p)[2]  # 25 samples
+    L <- dim(p)[1]
+    
+    snps <- as.data.frame(fread(asnp[i], header=FALSE))
+    
+    for(j in 1:J){
+        nx <- rbinom(n=L, size=1, prob=p[,j]) + 1
+        ss <- rep(NA, L)
+        for(l in 1:L){
+            ss[l] <- snps[l, nx[l]]
+        }
+        SS1 <- paste(ss, collapse="")
+        cat(">", ids[j,2], "\n", file=out, append=TRUE, sep="")
+        cat(SS1, "\n", file=out, append=TRUE, sep="")
+    }
+}
+```
+Run with RscriptmkCaster_noBAT49_noTBY51.R
+output: CAST_chrom_no bat or tby
+Check file content
+```sh
+# Check 25 samples per file
+grep -c ">" CAST_chrom_noBAT49_noTBY51_1.fasta
+
+# Check sequence length matches SNP count for chrom1 (159,408)
+grep -v ">" CAST_chrom_noBAT49_noTBY51_1.fasta | head -1 | wc -c
+```
+SNP subsetting for BEAST using mkNumericFasta.pl
+```sh
+#!/usr/bin/perl
+## this is to figure out which SNPs are variable in the fasta
+foreach $i (1..23){
+    system "grep -v \"^>\" BEAST_chrom_noBAT49_noTBY51_$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > text_chrom_noTBY51_$i.fasta\n";
+}
+```
+Run with perl mkNumericFasta.pl
+ Check:
+ ```sh
+wc -l text_chrom_noTBY51_1.fasta  # should be 25
+head -1 text_chrom_noTBY51_1.fasta | wc -w  # should be 159408
+```
+
