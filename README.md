@@ -199,6 +199,36 @@ foreach $bam (@ARGV){
 
 $pm->wait_all_children;
 ```
+# Filter ends 
+Filter (ct and ga) before mapdamage. Tried doing it in perl, gave up and just ran interactively with 
+FilterFork.sh
+```sh
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=gompert #SBATCH --partition=kingspeak
+#SBATCH --job-name=filter
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+for bam in *.bam; do base=$(basename "$bam" .bam) out="${base}.filtered${minlen}.bam"
+samtools view -h "$bam"
+| awk -v m="$minlen" '($1 ~ /^@/) || (length($10) >= 50)'
+| samtools view -b -o "$out" -
+
+samtools index "$out" done
+```
+Output: 
+
+
+
+
+
+
+
 # MapDamage
 We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. To do this we used SubMapDamFork.sh
 
