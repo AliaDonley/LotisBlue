@@ -3289,7 +3289,8 @@ head -10 lyc_genomemax_noBAT49_noTBY51.nex
 Make the 
 cp ../noBAT49/SubBeast.sh .
 Ran using SubBeast.sh, changed the input and output to fit this run
-
+Latest tree: lyc_wgs_ranlc_noBAT49_V2.trees
+Calibration correct here, need to fix invariant sites
 
 
 
