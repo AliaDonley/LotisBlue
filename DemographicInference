@@ -72,7 +72,7 @@ he demographic model function, by default the mutation parameter θ=4Nrefμ is s
 
 
 don't use thinning for beast step
-raw ad files of all 27 populations
+raw ad files of all 27 populations- snps_fff_o_lycpool_chrom*.txt
 GA CT ones gone
 demographic stuff
 filter from raw ad files. GATK and C=GACT out filtered already 
