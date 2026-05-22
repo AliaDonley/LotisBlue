@@ -3330,10 +3330,122 @@ foreach $scaf (sort keys %cnts){
 ```
 perl countBases.pl > baseCounts_noBAT49_V2.txt
 Output: baseCounts_noBAT49_V2.txt
+Total filtered SNPs -632430
+```
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49.txt | tail -1
+```
+Subsetted SNPs- 5991
+```
+grep -v ">" lyc_genomemax_noBAT49.fasta | head -1 | wc -c
+```
+5991 (+1 for added row)
 
+##find prop of bases that are acutally invariant (compared between total genome and subset genome for _BAT49)
+In R
+```r
+cnts <- read.table("baseCounts_noBAT49_V2.txt", header=FALSE)
+totals <- apply(cnts[,-1], 1, sum)
+chr <- which(totals >= 9211676)
+bcnt <- apply(cnts[chr,-1], 2, sum)
 
+prop <- 5990 / 632430
+cat("Proportion:", prop, "\n")
 
+sbcnt <- floor(bcnt * prop)
+cat("Scaled genome counts (A, C, G, T):", sbcnt, "\n")
+```
+prop= .0095
+A: 1393954 C: 803332 G: 802890 T: 1392333
 
+Count snps from subsetted genome using countSNPs_noBAT49.pl
+```
+#!/usr/bin/perl
+open(IN, "lyc_genomemax_noBAT49.fasta") or die "failed to read\n";
+while(<IN>){
+    chomp;
+    if(m/^>(\S+)/){
+        $scaf = $1;
+        $cnts{$scaf};
+    } else{
+	$A = $_ =~ tr/Aa/Aa/;
+        $C = $_ =~ tr/Cc/Cc/;
+        $G = $_ =~ tr/Gg/Gg/;
+        $T = $_ =~ tr/Tt/Tt/;
+        $cnts{$scaf}{'a'} += $A;
+        $cnts{$scaf}{'c'} += $C;
+        $cnts{$scaf}{'g'} += $G;
+        $cnts{$scaf}{'t'} += $T;
+    }
+}
+foreach $scaf (sort keys %cnts){
+    print "$scaf";
+    foreach $base (sort keys %{$cnts{$scaf}}){
+        print " $cnts{$scaf}{$base}";
+    }
+    print "\n";
+}
+```
+Run with: perl countSNPs_noBAT49.pl > snpCounts_noBAT49.txt
+Now calculate invariant sites in R
+```r
+#read SNP base counts and subtract from scaled genome counts
+snps <- read.table("snpCounts_noBAT49.txt", header=FALSE)
+dim(snps)  # should be 26 x 5
+snpCnts <- floor(apply(snps[,-1], 2, mean))
+cat("Mean SNP counts (A, C, G, T):", snpCnts, "\n")
+
+#calculate invariant counts
+invar <- sbcnt - snpCnts
+cat("Invariant counts (A, C, G, T):", invar, "\n")
+```
+A: 1392597 C:801756 G: 801234 T:1390934
+Pllug these into the data line in: lyc_wgs_max_ranlc_noBAT49.xml
+Run beast with SubBeast.sh
+
+Now do the same for tby51
+```
+wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49_noTBY51.txt | tail -1
+2562462 total
+grep -v ">" lyc_genomemax_noBAT49_noTBY51.fasta | head -1 | wc -c
+5991
+```
+run: 
+perl countSNPs_noTBY51.pl > snpCounts_noTBY51.txt
+```
+wc -l snpCounts_noTBY51.txt
+head -3 snpCounts_noTBY51.txt
+```
+In R
+```r
+# Step 1: read genome base counts
+cnts <- read.table("baseCounts.txt", header=FALSE)
+dim(cnts)  # should be 1651 x 5
+
+# Step 2: get 23 big chromosomes and sum base counts
+totals <- apply(cnts[,-1], 1, sum)
+chr <- which(totals >= 9211676)
+cat("Number of chromosomes:", length(chr), "\n")
+bcnt <- apply(cnts[chr,-1], 2, sum)
+cat("Total genome base counts (A, C, G, T):", bcnt, "\n")
+
+# Step 3: scale by proportion
+prop <- 5990 / 2562462
+cat("Proportion:", prop, "\n")
+sbcnt <- floor(bcnt * prop)
+cat("Scaled genome counts (A, C, G, T):", sbcnt, "\n")
+
+# Step 4: read SNP counts
+snps <- read.table("snpCounts_noTBY51.txt", header=FALSE)
+dim(snps)  # should be 25 x 5
+snpCnts <- floor(apply(snps[,-1], 2, mean))
+cat("Mean SNP counts (A, C, G, T):", snpCnts, "\n")
+
+# Step 5: calculate invariant counts
+invar <- sbcnt - snpCnts
+cat("Invariant counts (A, C, G, T):", invar, "\n")
+```
+342578 196768 196619 342140
+put into .xml file and run
 
 
 # An attempt at demographic inference
