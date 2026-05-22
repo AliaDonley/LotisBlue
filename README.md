@@ -1751,9 +1751,10 @@ axis(1,mids,c(1:22,"Z"))
 dev.off()
 ```
 
-TO LOOK AT THE CASTER TREE: java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
-########################## Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files #####################################
-
+TO LOOK AT THE BEAST TREE: 
+java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
+# Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files 
+```r
 R
 be in correct working directory
 library(data.table)
@@ -1781,16 +1782,13 @@ summary(bat49_cov)
 summary(tby51_cov)
 summary(bat20_cov)
 
-
-### finding a sweet spot between the two extremes from the ancient populations. Somewhere between 8-20x coverage
-and 500x coverage. Will then read in each ad file for each chromosome, index it, and filter for each population 
-based on what I decided################
-
+```
+finding a sweet spot between the two extremes from the ancient populations. Somewhere between 8-20x coverage and 500x coverage. Will then read in each ad file for each chromosome, index it, and filter for each population 
+based on what I decided
+```r
 sum(lotis_cov > 20)
 sum(lotis_cov > 20 & bat49_cov > 20)
 sum(lotis_cov > 20   & lotis_cov < 500)
-
-#####
 
 library(data.table)
 a1 <- as.matrix(fread("ad1_fff_o_lycpool_chrom23.txt", header=FALSE))
@@ -1833,32 +1831,26 @@ nrow(snps_filtered_check)
 
 
 head(fread("beastfilteredad1_fff_o_lycpool_chrom.txt", header=FALSE))
-
-
-##check how many SNPS total
+```
+check how many SNPS total
 
 wc -l beastfiltered*
-### 24560
+24560
 
 
-
-###Needed to regenerate the SNP information from SNPs.sh. Still used my origional filtered set from round 1
+Needed to regenerate the SNP information from SNPs.sh. Still used my origional filtered set from round 1
 where filtered the vcf file with GATK version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3
-using VarFiltFork2.pl. 
 
-##output was beastfilteredsnps_fff_o_lycpool_chrom_.txt
+Using VarFiltFork2.pl. 
+output was beastfilteredsnps_fff_o_lycpool_chrom_.txt
+allele depth files are taken care of from code up above. 
 
-## allele depth files are taken care of from code up above. 
-##output has been switched to ad1 and 2_ beastfiltered_fff_o_lycpool_chrom
-
-
-
-##Need to also filter the beastfilteredsnp files. Running these through the same code as ad1 and ad2 files in R. Code 
-will be below. 
-##first I copied the origional SNP files snps_fff_o_lycpool_chrom and names the set to be filtered beastfilteredsnps_fff_o_lycpool_chrom
-##the new files will have that new corrected name beastfilteredsnps_fff_o_lycpool_chrom. 
+NOTE: output has been switched to ad1 and 2_ beastfiltered_fff_o_lycpool_chrom
 
 
+Need to also filter the beastfilteredsnp files. Running these through the same code as ad1 and ad2 files in R. Code 
+will be below. first I copied the origional SNP files snps_fff_o_lycpool_chrom and names the set to be filtered beastfilteredsnps_fff_o_lycpool_chrom the new files will have that new corrected name beastfilteredsnps_fff_o_lycpool_chrom. 
+```r
 library(data.table)
 a1 <- as.matrix(fread("fff_o_lycpool_chrom10.vcf", header=FALSE))
 cov <- a1 
@@ -1883,15 +1875,11 @@ nrow(a1_original)
 nrow(a1_filtered_check)
 
 head(fread("beastfilteredad1_fff_o_lycpool_chrom2.txt", header=FALSE))
+```
 
+Input files for BEAST
 
-
-
-
-
-
-
-
+```r
 mkBeastDat.R
 
 library(data.table)
@@ -1939,12 +1927,14 @@ for(i in 1:N){
 	}
 	
 }
+```
+output: max_chromad1_beastfilteredV2_fff_o_lycpool_chrom   
+had output: max_chromFinalad1_beastfilteredV2_fff_o_lycpool_chrom - but pretty sure it was updated to line above.   
 
-###output: max_chromFianalad1_beastfilteredV2_fff_o_lycpool_chrom
 
-
-mkCaster.R
-
+# Generate Caster input files
+using: mkCaster.R
+```r
 library(data.table)
 
 a1f<-list.files(pattern="ad1_beastfiltered")
@@ -1989,18 +1979,16 @@ for(j in 1:J){
 	
 }
 
-
-for this I just made my updated max_chrom_finalad1_beastfiltered files my sub_max files to avoid 
-naming confusion and mislabelling later on. 
-
+```
+## check if this still true
+-for this I just made my updated max_chrom_finalad1_beastfiltered files my sub_max files to avoid naming confusion and mislabelling later on. 
 mv max_chrom_Finalad1_beastfilteredV2_fff_o_lycpool_chrom9.fasta sub_max_chrom9.fasta
+didn't need to run SubAlign.pl 
+Output is now  sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*
 
 
-
-### didn't need to run SubAlign.pl. Output is now  sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*
-
-
-
+## snp subsetting
+```pl
 mkNumericFasta.pl
 #!/usr/bin/perl
 
@@ -2014,15 +2002,12 @@ foreach $i (1..23){
 
 foreach $i (1..23){
     system "grep -v \"^>\" sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > text_chrom$i.fasta\n";
+```
+output: text_chrom*.fasta
 
-###output: text_chrom*.fasta
-
-##Next filtered the SNPs for Beast, doing .5 (half) instead of .0035 using GetSNPSubstMax.R
-
-
-## identify SNPs from the alignments that are variable in the alignments
-## and subsample these
-
+Next filtered the SNPs for Beast, doing .5 (half) instead of .0035 using GetSNPSubstMax.R
+Identify SNPs from the alignments that are variable in the alignments and subsample these
+```r
 library(data.table)
 
 miss<-vector("list",23)
@@ -2044,13 +2029,15 @@ for(i in 1:23){
         write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
 }
 save(list=ls(),file="snps_maxV2.rdat")
-
-###output: snps_maxV2.rdat
-
-
+```
+output: snps_maxV2.rdat
 
 
-####Combined fasta alignments with subset of snps using SubSetFasta.pl
+
+
+### Combined fasta alignments with subset of snps 
+Using SubSetFasta.pl:
+```pl
 
 #!/usr/bin/perl
 #
@@ -2099,41 +2086,48 @@ foreach $pop (sort keys %seq){
 	}
 }
 close(OUT);
+```
 
 seqmagick convert --output-format nexus --alphabet dna lyc_genomemaxV2.fasta lyc_genomemaxV2.nex
 
-## when I put the .nex file into beauti, I have 6135 bases after this filtering round
-
-##put into beauti and save as output: lyc_wgs_ranlc.....
-
+when I put the .nex file into beauti, I have 6135 bases after this filtering round
+put into beauti and save as output: lyc_wgs_ranlc.....
 put log files into logcombiner with output: combinedlogsFinal.log
-w
 
 
 
-###counting the proportion of SNPs per chromosome before and after filtering. 
-## still need to cut out BAT49
 
-## Pre-filtered allele depth files are under: ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt IS THIS THE POST FILTERED
-##Post-filtered ad files under: beastfilteredsnpsV2 -PRE???
+## Counting the proportion of SNPs per chromosome before and after filtering to determine whether or not to cut BAT49 and TBY51
+still need to cut out BAT49
 
-# Get row counts for each chromosome file- Total at end
+##Pre-filtered allele depth files are under: ad1_fff_o_lycpool_chrom*.txt 
+	pre filtered includes all pops, all chroms, filtered with GATK as a vcf. Does not including the strict constraints of 20-500x coverage
+	pre filtered snp files under: snps_fff_o_lycpool_chrom*.txt
+	(made 4/23/26, about 50-90M)
+
+##Post-filtered ad files under: ad1_beastfilteredV2_fff_o_lycpool_chrom
+	post filtered includes all pops, all chroms, with a strict filter of 20-500x coverage across all 27 pops. I have not filtered for lotis, bat49, or tby51 seperately yet. 
+	post filtered snp files under: beastfilteredsnps_fff_o_lycpool..... - I fear these may have been overwritten. 
+		In /noBAT49 I also have beastfilteredV2_fff_... that I believe is the pre filtered snp files, but run through more stringent filters. 
+
+
+# checking coverage and proportion per each chrom
+Get row counts for each chromosome file
+```
 wc -l ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt
-##Total= 12280
+```
+Total= 12280
 
-# Confirm a file has no header (first row should be all numbers)
+Confirm a file has no header (first row should be all numbers)
+```
 head -1 ad1_beastfilteredV2_fff_o_lycpool_chrom1.txt
+```
+this gave me the number of SNPs per chromosome. 12,280 total snps over 23 chromosomes and across 27 pops. Lowest coverage was population 3, BAT49
 
-##this gave me the number of SNPs per chromosome. 12,280 total snps over 23 chromosomes and across 27 pops
-##Lowest coverage was population 3, BAT49
-
-
-##SNP counts and proportions per chromosome 
-
-## All this code can be found in SNPsProportionCounts.sh
-
-##we know the total SNPs is 12280
-
+SNP counts and proportions per chromosome 
+All this code can be found in SNPsProportionCounts.sh
+we know the total SNPs is 12280
+```sh
 total=12280
 
 for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
@@ -2142,15 +2136,14 @@ for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
     echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
 done | sort -t'm' -k2 -n > snp_counts_proportions2.txt
 
-cat snp_counts_proportions.txt 
-###output: snp_counts_proportions.txt and second run was snp_counts_proportions2.txt
-###
+cat snp_counts_proportions.txt
+```
+output: snp_counts_proportions.txt and second run was snp_counts_proportions2.txt
 
-####PROPORTION OF SNPS ON EACH CHROMOSOME
+PROPORTION OF SNPS ON EACH CHROMOSOME
 
-
-##next going to caluclate the mean depth per population (column)
-
+next going to caluclate the mean depth per population (column)
+```r
 for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
     chrom=$(echo $f | grep -oP 'chrom\d+')
     awk -v chrom="$chrom" '
@@ -2165,18 +2158,19 @@ for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
             print chrom, i, sum[i]/count[i]
     }' $f
 done > mean_coverage_per_chrom_pop2.txt
+```
+Note for code: 
+chrom=$(echo $f | grep -oP 'chrom\d+') - extracts chromosome label followed by one or more digits and prints only the match. P- perl style regex sorts ouput. n sorts numerically, k2 sorts second field (alphebetically and then numerically). t'm' sets M in chrom as the end or delimiter (cutoff)
 
-
-### chrom=$(echo $f | grep -oP 'chrom\d+') - extracts chromosome label followed by one or more digits and prints only the match. P- perl style regex
-## sorts ouput. n sorts numerically, k2 sorts second field (alphebetically and then numerically). t'm' sets M in chrom as the end or delimiter (cutoff)
-
+Check
+```
 head mean_coverage_per_chrom_pop.txt
-# Output: chrom  pop_index  mean_depth
-##output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
+```
+Output format: chrom  pop_index  mean_depth
+output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
 
-
-##Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
-
+Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
+```
 awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
 ##Check that it worked
 cat sample_names.txt
@@ -2187,20 +2181,16 @@ awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
   > mean_coverage_named.txt
 
 mean_coverage_total_postfilter.txt
-
-# Output: chrom  sample_name  mean_depth 
+```
+Output format: chrom  sample_name  mean_depth 
 head mean_coverage_named.txt
-##Showing us BAT49 has the worst depth coverage (~30) 
-##conpared to lotis (~40-50) and TBY51~(40-50)
-##to check coverage for each population: grep BAT49 mean_coverage_named.txt
 
-##Chromosome by population matrix (##rows= chrom, columns= pops)
+Showing us BAT49 has the worst depth coverage (~30) conpared to lotis (~40-50) and TBY51~(40-50). 
+To check coverage for each population: grep BAT49 mean_coverage_named.txt
 
-
-
-
-
+## Chromosome by population matrix (##rows= chrom, columns= pops)
 ### Now on the post filtered
+```
 total=12280
 for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt; do
     chrom=$(echo $f | grep -oP 'chrom\d+')
@@ -2208,15 +2198,13 @@ for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt; do
     echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
 done | sort -t'm' -k2 -n > snp_counts_proportionspost.txt
 
-cat snp_counts_proportionspost.txt 
-###output: snp_counts_proportionspost.txt and second run was snp_counts_proportions2.txt
-###
+cat snp_counts_proportionspost.txt
+```
+output: snp_counts_proportionspost.txt and second run was snp_counts_proportions2.txt
 
-####PROPORTION OF SNPS ON EACH CHROMOSOME
-
-
-##next going to caluclate the mean depth per population (column)
-
+### PROPORTION OF SNPS ON EACH CHROMOSOME
+next going to caluclate the mean depth per population (column)
+```
 for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
     chrom=$(echo $f | grep -oP 'chrom\d+')
     awk -v chrom="$chrom" '
@@ -2231,18 +2219,13 @@ for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
             print chrom, i, sum[i]/count[i]
     }' $f
 done > mean_coverage_per_chrom_pop2.txt
-
-
-### chrom=$(echo $f | grep -oP 'chrom\d+') - extracts chromosome label followed by one or more digits and prints only the match. P- perl style regex
-## sorts ouput. n sorts numerically, k2 sorts second field (alphebetically and then numerically). t'm' sets M in chrom as the end or delimiter (cutoff)
-
+```
 head mean_coverage_per_chrom_pop.txt
-# Output: chrom  pop_index  mean_depth
-##output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
+Output format: chrom  pop_index  mean_depth
+output file: mean_coverage_per_chrom_pop*.txt - run 1 and 2 same so far
 
-
-##Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
-
+Just added population names to values (mean depths and snp counts) using my IDs.txt file. Created sample_names.txt to avoid overwriting my IDs.txt file again
+```
 awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
 ##Check that it worked
 cat sample_names.txt
@@ -2251,18 +2234,16 @@ cat sample_names.txt
 awk 'NR==FNR{name[$1]=$2; next} {print $1, name[$2], $3}' \
   sample_names.txt mean_coverage_per_chrom_pop.txt \
   > mean_coverage_named.txt
-
-# Output: chrom  sample_name  mean_depth 
+```
+Output: chrom  sample_name  mean_depth 
 head mean_coverage_named.txt
-##Showing us BAT49 has the worst depth coverage (~30) 
-##conpared to lotis (~40-50) and TBY51~(40-50)
-##to check coverage for each population: grep BAT49 mean_coverage_named.txt
-
+Showing us BAT49 has the worst depth coverage (~30) conpared to lotis (~40-50) and TBY51~(40-50). to check coverage for each population: 
+```
+grep BAT49 mean_coverage_named.txt
+```
 ##Chromosome by population matrix (##rows= chrom, columns= pops)
-
-
 ###Fixed this by combining ad 1 and ad2
-
+```
 # Confirm both sets exist
 ls ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt | wc -l
 ls ad2_beastfilteredV2_fff_o_lycpool_chrom*.txt | wc -l
@@ -2292,8 +2273,10 @@ for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*.txt; do
 done > mean_coverage_total_postfilter.txt
 
 head mean_coverage_total_postfilter.txt
+```
 
-### Adding sample names 
+Adding sample names 
+```
 awk '{print NR"\t"$1}' IDs.txt > sample_names.txt
 ##Check that it worked
 cat sample_names.txt
@@ -2304,10 +2287,10 @@ sample_names.txt mean_coverage_total_postfilter.txt \
 mean_coverage_total_postfilter.txt
 
 head mean_coverage_total_postfilter.txt
-
+```
 ### Build coverage matrix 
 
-
+```
 echo -e "chrom\t$(awk '{print $1}' IDs.txt | tr '\n' '\t' | sed 's/\t$//')" > coverage_matrix_postfilter.txt
 
 # Matrix
@@ -2328,10 +2311,10 @@ END {
 }' mean_coverage_total_postfilter.txt >> coverage_matrix_postfilter.txt
 
 cat coverage_matrix_postfilter.txt
-
+```
 
 ###prefiltered
-
+```
 total_pre=$(wc -l ad1_fff_o_lycpool_chrom*.txt | grep total | awk '{print $1}')
 echo $total_pre
 
@@ -2380,9 +2363,9 @@ END {
 }' mean_coverage_total_prefilter.txt >> coverage_matrix_prefilter.txt
 
 cat coverage_matrix_prefilter.txt
-
-####Post and pre filtering SnP counts and proportions 
-
+```
+## Post and pre filtering SnP counts and proportions 
+```
 ###find the totals: 
 For pre filtered: wc -l beastfilteredsnps_fff_o_lycpool_chrom*.txt
 15387914
@@ -2396,12 +2379,12 @@ for f in beastfilteredsnps_fff_o_lycpool_chrom*.txt; do
 done | sort -t'm' -k2 -n > snp_counts_proportions_prefilter.txt
 
 cat snp_counts_proportions_prefilter.txt
+```
 
-
-###and Post filtereed: wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt
+## Post filtereed: wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt
 12280
-## Find props
-
+Find props
+```
 total_post=12280
 
 for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt; do
@@ -2419,12 +2402,12 @@ set a min for lotis and tomboy (10x) and an AVERAGE min for the rest- mean of 20
 don't include lotis and tomboy in average- maybe
 check for outside of the bell (multicopy)- knock out top few percent 
 still need to do thinning of snps beast
+```
 
+##checking contents of origional files 
 
-
-###checking contents of origional files 
-
-# Confirm column order in original ad1 file
+#Confirm column order in original ad1 file
+```
 head -1 ad1_fff_o_lycpool_chrom1.txt
 
 # Check original SNP file
@@ -2450,13 +2433,14 @@ for f in ../beastfilteredsnps_fff_o_lycpool_chrom*.txt; do
     chrom=$(echo $f | grep -oP 'chrom\d+')
     cut -f1-2,4- $f > beastfilteredsnps_fff_o_lycpool_${chrom}_noBAT49.txt
 done
-
+```
 ### Verify that it worked
-## Check columns - should be 26
+#Check columns - should be 26
+```
 awk '{print NF}' ad1_fff_o_lycpool_chrom1_noBAT49.txt | sort -u
 ## Check SNP file is still 2 columns
 awk '{print NF}' beastfilteredsnps_fff_o_lycpool_chrom1_noBAT49.txt | sort -u
-## Rows could match origionals 
+## Rows could match originals 
 wc -l ad1_fff_o_lycpool_chrom1_noBAT49.txt ../ad1_fff_o_lycpool_chrom1.txt
 
 # Check original column order from VCF
@@ -2471,10 +2455,10 @@ grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
     tail -n +10 | \
     grep -v "BAT49" | \
     nl
-
-### R code to filter
-## Lotis and TBY51, min coverage of 10
-
+```
+## R code to filter heavily on aDNA, after getting rid of BAT49
+Lotis and TBY51, min coverage of 10
+```
 library(data.table)
 
 lotis_col <- 13
@@ -2515,7 +2499,7 @@ for (chrom in 1:23) {
          file=paste0("beastfilteredsnpsV2_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"), 
          sep="\t", col.names=FALSE)
 }
-
+```
 check values:
 ## Total pre-filtered snps: 15,387,914
 ## Total post-filter snps kept: 632,430
@@ -2658,10 +2642,10 @@ for(i in 1:N){
 
 
 
-### for thinning for BEAST: need to thin somewhere between .12 and .35 given chrom size. Trying two options:
+### For thinning for BEAST: need to thin somewhere between .12 and .35 given chrom size. Trying two options:
 
 ## Number 1- fixed number of snps per chrom
-
+```r
 library(data.table)
 miss <- vector("list", 23)
 for(i in 1:23){
@@ -2686,18 +2670,14 @@ for(i in 1:23){
     write.table(keepSNPs[[i]], file=out, row.names=FALSE, col.names=FALSE, quote=FALSE)
 }
 save(list=ls(), file="snps_maxFixed.rdat")
+```
 
-
-
-
-
-
-# In R - how many SNPs have NO missing data per chromosome?
+In R - how many SNPs have NO missing data per chromosome?
 
 
 ## Number 2- proportion for all chromosomes (4-6k)
 
-
+```r
 ## had to find proportion first:
 in R:
 counts <- c(35697,32239,29561,31106,37354,28824,28523,30358,23719,
@@ -2738,9 +2718,9 @@ for(i in 1:23){
 }
 save(list=ls(),file="snps_maxProp.rdat")
 
-
+```
 SubSetFasta.pl
-# this subsets and concatenates a set of SNPs from fasta
+```pl
 
 foreach $i (1..23){
 	open(IN,"keepSNPs_maxProp_chrom$i") or die "failed to open snps file $i\n";
@@ -2788,13 +2768,13 @@ foreach $pop (sort keys %seq){
 	}
 }
 close(OUT);
-
+```
 
 
 # Removing BAT49 and TBY51
 this can all be found in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/noBAT49_noTBY51
 ## Removing both populations
-# Remove columns 3 and 24 (BAT49 and TBY51) from all original ad1, ad2, and SNP files
+### Remove columns 3 and 24 (BAT49 and TBY51) from all original ad1, ad2, and SNP files
 ```sh
 for f in ../ad1_fff_o_lycpool_chrom*.txt; do
     chrom=$(echo $f | grep -oP 'chrom\d+')
