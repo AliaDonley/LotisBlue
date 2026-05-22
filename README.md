@@ -2501,20 +2501,26 @@ for (chrom in 1:23) {
 }
 ```
 check values:
-## Total pre-filtered snps: 15,387,914
-## Total post-filter snps kept: 632,430
-## Total removed: 14,784,484 (95% ish...)
+##Total pre-filtered snps: 15,387,914
+##Total post-filter snps kept: 632,430
+##Total removed: 14,784,484 (95% ish...)
 
-# which files are being counted
+#which files are being counted
+```
 wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt
+```
 # count only the noBAT49 files
+```
 wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49.txt | tail -1
+```
 # non-noBAT49 files separately
+```
 wc -l beastfilteredsnpsV2_fff_o_lycpool_chrom*.txt | grep -v "noBAT49"
+```
 
 ## Snp counts and proportion
 # SNP counts and proportions
-
+```
 total=632430
 
 for f in beastfilteredsnpsV2_fff_o_lycpool_chrom*_noBAT49.txt; do
@@ -2542,8 +2548,9 @@ for f in ad1_beastfilteredV2_fff_o_lycpool_chrom*_noBAT49.txt; do
 done > mean_coverage_total_noBAT49.txt
 
 head mean_coverage_total_noBAT49.txt
-
+```
 # Regenerate sample names without BAT49
+```
 grep "^#CHROM" ../fff_o_lycpool_chrom1.vcf | tr '\t' '\n' | \
     tail -n +10 | \
     grep -v "BAT49" | \
@@ -2581,15 +2588,16 @@ END {
 }' mean_coverage_total_noBAT49_named.txt >> coverage_matrix_noBAT49.txt
 
 cat coverage_matrix_noBAT49.txt
+```
 
-
-##########mkBeast.R
+# mkBeast.R- no BAT49
 
 
 # check what files get picked up with new pattern
 list.files(pattern="ad1_beastfilteredV2_fff_o_lycpool_chrom.*noBAT49")
 
 # Check IDs file
+```r
 read.table("IDs.txt", header=FALSE)
 library(data.table)
 
@@ -2636,11 +2644,7 @@ for(i in 1:N){
     }
 }
 
-
-
-
-
-
+```
 
 ### For thinning for BEAST: need to thin somewhere between .12 and .35 given chrom size. Trying two options:
 
@@ -2671,6 +2675,7 @@ for(i in 1:23){
 }
 save(list=ls(), file="snps_maxFixed.rdat")
 ```
+This shit didn't work, go to option 2
 
 In R - how many SNPs have NO missing data per chromosome?
 
