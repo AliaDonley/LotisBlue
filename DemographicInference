@@ -27,4 +27,71 @@ fs = dadi.Spectrum.from_data_dict(dd, ['pop0', 'pop1'], projections = [20, 30], 
 #SNP
 The method Spectrum.from_data_dict can be used to create a Spectrum using: fs = Spectrum.from_data_dict(dd, pop_id = ['YRI', 'CEU'], projections = [10, 12], polarized = True)
 pop_ids specifies which populations to use to create the FS and their order
-projections denotes the population sample sizes for resulting FS
+projections denotes the population sample sizes for resulting FS (2 samples for each individual- diploid).
+polarized specifies if dadi should use an outgroup to polarize the SNPs. =TRUE snps wit or without outgroup info will be ignored. =FALSE outgroup info will be ignored and resuting spectrum will be folded. 
+If data has missing calls for some individuals, projecting down to a smaller sample size will increase the # of snps in the analysis. Downside is some fraction of the snps will project down to a freq of 0 and will be uninformative 
+Typically- often choose our projection to maximize the number of segregating sites found in final FS assessed with fs.S(). 
+
+How to generate fs from SNP data:
+data file begins with any number of comment lines
+first line passed is a column header line. header arbitrary
+first column contains the in group reference sequence at that snp, including flanking bases. If bases are unknown: -
+second column contains aligned outgroup ref sequece at that snp. header arbitrary
+third column gives first segregating allele. Column header must be Allele1
+Following is an arbitrary number of columns, one for each pop, giving the number of times Allele1 was observed in that pop. Header for each column should be pop name. 
+Next column gives second segragating allele. Header must be Allele2
+Follows is the pops and how many times allele2 was observed. Header/column identifier should be in same order as allele1
+Followed by arbitrary number of columns which will be concatenated with _ to assign label for each snp
+Method Misc.make_data_dict reads the above snp file format to generate a python data dictionary describing the data: dd = Misc.make_data_dict(filename)
+
+# Output of data after building fs
+Frequency spectra are stored in dadi.Spectrum objects. 
+
+Multi population statistics
+number of segragating sites (S)
+S = fs.S()
+
+Fst can be calculated:
+Fst = fs.Fst()
+FST assumes random mating becasuse FS does not store heterozygote. 
+
+Folding
+dadi considers the data in the spectrum to be polarized, and ancestral state of each variant is known. If this insn't possible, need to fold the FS using:
+folded = fs.fold()
+
+Projection
+can project an FS down from larger sample size to smaller size. Averages over all possible re-samplings of the larger sample size. Often done in the case of missing data. Missing data can include: if some sites could not be called in all individuals, one can set a lower bound on the number of successfull calls necessary to include a SNP in the analysis; SNPs with more successful calls can then be projected down to that number of calls
+To project a two D FS down to saple sizes of 14 and 26 use: 
+proj = fs.project([14, 26])
+
+Can simulate poisson sampling, can scramble, marginalize, and mask too. Not sure I'll need these off the bat
+
+Specifying a model
+Demographic model specifies pop sizes, migration rates as a function of time, and includes discrete events like pop splitting and admixture. These models in dadi are specified FORWARD in time. All pop sizes within a demographic model are specified releative to some reference pop size Nref. 
+he demographic model function, by default the mutation parameter θ=4Nrefμ is set to 1. This is because the optimal θ for a given model and set of data is trivial to calculate, so dadi by default does this automatically in optimization (so-called "multinomial" optimization). See the Fixed θ section for how to fix theta to a particular value in a demographic model (https://dadi.readthedocs.io/en/latest/user-guide/specifying-a-model/)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
