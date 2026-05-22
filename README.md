@@ -912,7 +912,7 @@ dev.off()
 
 # FST
 Not fully working yet
-
+```r
 P<-vector("list",23)
 n<-vector("list",23)
 H<-vector("list",23)
@@ -924,8 +924,9 @@ for(i in 1:N){
 	H[[i]] <- 2 * P[[i]] * (1 - P[[i]])
 
 }
-
+```
 ## mn P
+```
 reps<-grep(pattern="rep",ids[,1])
 mnP<-vector("list",23)
 Nas<-vector("list",23)
@@ -957,9 +958,9 @@ for(i in 1:N){
         } else {keepSNPs[[i]] <- integer(0)}
  } else {keepSNPs[[i]] <- integer(0) }
 }
-
+```
 ##sampled from filtered snps, not empy vectors, scale proportion based on length
-
+```
 for(i in 1:N){
 	out<-paste("keepSNPs_chrom",chrom[i],sep="")
 	write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
@@ -1059,9 +1060,9 @@ for(k in mord){
 }
 dev.off()
 
-
+```
 Lotis and SHC11
-
+```
 pdf("FstWinsLOTIS_SHC11V2.pdf",width=8,height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
@@ -1124,11 +1125,9 @@ for(k in mord){
 	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
 }
 dev.off()
-
-
-##get lengths and number of snps for FstLycspc to see if it is actually the z that is popping out as odd##
-TBY11 and TBY51
-
+```
+TBY51 and TBY11
+```r
 pdf("FstWinsTBY51_TBY11.pdf",width=8,height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
@@ -1146,8 +1145,9 @@ for(k in mord){
 	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
 }
 dev.off()
-
-#############3Version 2)- forgot to label as V2 in chpc
+```
+# Version 2)- forgot to label as V2 in chpc
+```
 pdf("FstWinsTBY51_TBY11.pdf", width=8, height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
@@ -1291,7 +1291,7 @@ for(k in mord){
 	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
 }
 dev.off()
-
+```
 
 
 
