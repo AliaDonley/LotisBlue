@@ -375,6 +375,7 @@ done
 
 
 
+# This is down to where I thoughtfully went through it all. Everything below is just formatted. 
 
 
 
@@ -382,25 +383,21 @@ done
 
 
 
-
-##Counting Softclipping for real dataset
-
+# Counting Softclipping for real dataset
+```sh
 for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
     chrom=$(echo $f | grep -oP '\d+(?=\.fasta)')
     nchar=$(grep -v ">" $f | head -1 | tr -d '\n' | wc -c)
     size=$(du -sh $f | cut -f1)
     echo -e "chrom${chrom}\t${nchar}\t${size}"
 done | sort -t'm' -k2 -n
+```
 
-
-#Mapdamage on Real Dataset 
-
+# Mapdamage on Real Dataset 
+```pl
 ##MapDamFork.pl
 #!/usr/bin/perl
-#
-# run mapdamage
-#
-
+#run mapdamage
 
 use Parallel::ForkManager;
 my $max = 30;
@@ -416,10 +413,10 @@ foreach $file (@ARGV){
         $pm->finish;
 }
 $pm->wait_all_children;
+```
 
-
-##Run by SubMapDamFork.sh
-
+Run by SubMapDamFork.sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -437,16 +434,17 @@ module load bwa
 cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
 
 perl MapDamFork.pl *bam
+```
 
-##RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET)
-##I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
-##USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET). I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
 
-##VARIANT CALLING
+USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+# VARIANT CALLING
+USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+DIDN'T HAVE THE INDEXED BAI FILES, NEEDED TO INDEX USING THIS SCRIPT: 
 
-
-##DIDN'T HAVE THE INDEXED BAI FILES, NEEDED TO INDEX USING THIS SCRIPT: 
 Index.sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -456,7 +454,6 @@ Index.sh
 #SBATCH --job-name=Indexing
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=alia.donley@usu.edu
-
 
 module load samtools
 ## version 1.16
@@ -470,10 +467,10 @@ do
 echo "Indexing $bam..."
 samtools index "$bam"
 done
-
-##RAN THE FOLLOWING SUBMISSION SCRIPT
-VariantCall.sh
-
+```
+# Variant calling
+Ran with VariantCall.sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -484,18 +481,18 @@ VariantCall.sh
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=alia.donley@usu.edu
 
-
 module load samtools
 ## version 1.16
 module load bcftools
 ## version 1.16
 
 cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
-
 perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VariantCall.pl chrom*list
 
-##WHICH RAN
-VariantCall.pl
+```
+
+Which ran: VariantCall.pl
+```pl
 #!/usr/bin/perl
 #
 # samtools/bcftools variant calling by LG 
@@ -517,9 +514,12 @@ foreach $chrom (@ARGV){
 }
 
 $pm->wait_all_children;
+```
+output: o_lycpool_chrom#.vcf
 
-##THIS SPIT OUT O_LYCPOOL_CHROM#.VCF FILES THAT WILL BE FILTERED THROUGH GATK USING THIS SUBMISSION SCRIPT:
-##VarFiltFork2.sh:
+# Filtering with GATK
+Ran: VarFiltFork2.sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -530,7 +530,6 @@ $pm->wait_all_children;
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=alia.donley@usu.edu
 
-
 module load samtools
 ## version 1.16
 module load bcftools
@@ -539,11 +538,10 @@ module load bcftools
 cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
 
 perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VarFiltFork2.pl
+```
 
-
-##Which Runs:
-##VarFiltFork2.pl
-
+Which Runs: VarFiltFork2.pl
+```pl
 #!/usr/bin/perl
 #
 # samtools/bcftools variant calling by LG 
@@ -564,12 +562,11 @@ foreach $chrom (@ARGV){
 
 }
 $pm->wait_all_children;
+```
+# Allele depth files
+Next, extract allele depths from filtered vcf files. Also drops indels and multiallelic data. This gives ad1 and ad2. Ran with: AD.sh
 
-
-###Next, extract allele depths from filtered vcf files. Also drops indels and multiallelic data. This gives ad1 and ad2
-Called AD.sh
-
-
+```sh
 #!/usr/bin/bash
 #
 # extract allele depth AD from biallelic SNPs that passed filtering 
@@ -583,6 +580,7 @@ do
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out   
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
 done
+```
 
 
 
@@ -593,18 +591,13 @@ done
 
 
 
-
-
-
-
-### SECOND RUN AFTER SCRATCH SPACE WAS WIPED ###### Lotis Revival babe
+# SECOND RUN AFTER SCRATCH SPACE WAS WIPED
 
 ##All bam and bai index files are in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-##Indexed bam files using
-
+# Indexing
+Indexed bam files using:
 Index.sh
-
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -628,11 +621,11 @@ do
 echo "Indexing $bam..."
 samtools index "$bam"
 done
-
-##Needed to Filter ends for mapdamage. Ran using:
-
+```
+# Filter ends for mapdamage
+Needed to Filter ends for mapdamage. Ran using:
 FilterFork.sh
-
+```sh
 #!/bin/sh
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
@@ -658,12 +651,12 @@ for bam in *.bam; do
 
   samtools index "$out"
 done
+```
+tried using perl script but gave up. 
 
-##tried using perl script but gave up. 
-
-##Ran MapDamage on all populations using 
-
-##MapDamFork.pl
+# Ran MapDamage on all populations using 
+MapDamFork.pl
+```pl
 #!/usr/bin/perl
 #
 # run mapdamage
@@ -684,10 +677,10 @@ foreach $file (@ARGV){
         $pm->finish;
 }
 $pm->wait_all_children;
+```
 
-
-#########################################3#Run by SubMapDamFork.sh
-
+Run by SubMapDamFork.sh
+```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
 #SBATCH --nodes=1
@@ -705,18 +698,17 @@ module load bwa
 cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
 
 perl MapDamFork.pl *bam
+```
 
-
-###############################################33######################Variant Calling###################################333333######################333
-####Make a folder containing all bams
-#### Had to make the folder with all the full paths to the bams. Left the index files (.bai) in the main directories 
-
+# Variant Calling
+Make a folder containing all bams. Had to make the folder with all the full paths to the bams. Left the index files (.bai) in the main directories 
+```sh
 ls -1 *.bam > bams
 head bams
-
-### Run Variant calling on all bams with 
+```
+## Run Variant calling on all bams with 
 VariantCall.pl
-
+```pl
 #!/usr/bin/perl
 #
 # samtools/bcftools variant calling by LG 
@@ -738,14 +730,13 @@ foreach $chrom (@ARGV){
 }
 
 $pm->wait_all_children;
+```
+output: o_lycpool_chrom*.vcf
+Submitted with:SubVariantCall.sh
+Note: chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside 
+chrom1.list-chrom23.list
 
-#output: o_lycpool_chrom*.vcf
-
-###########################3333###Submitted with:SubVariantCall.sh
-##chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside
-##chrom1.list-chrom23.list
-
-
+```sh
 #!/bin/sh
 #SBATCH --time=13:00:00
 #SBATCH --nodes=1
@@ -763,12 +754,13 @@ module load bcftools
 cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
+```
 
 
-
-###########################3#### filtered the vcf file with GATK version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3. Using:
-####################3###VarFiltFork2.pl
-
+# Filtered the vcf file with GATK 
+version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3. Using:
+VarFiltFork2.pl
+```pl
 #!/usr/bin/perl
 #
 # filter vcf with GATK and tabix 
@@ -802,11 +794,11 @@ foreach $vcf (@ARGV){
 }
 
 $pm->wait_all_children;
+```
+output: fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi
 
-
-#output: fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi
-
-###Run by SubVarFiltFork2.sh
+The above was submitted by SubVarFiltFork2.sh
+```sh
 #!/bin/sh
 #SBATCH --time=72:00:00
 #SBATCH --nodes=1
@@ -825,13 +817,11 @@ module load bcftools
 cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
+```
 
-
-
-
-################ I extracted the allele depths (count of each allele for each SNP) from the filtered vcf files. This script also drops INDELS and multiallelic data
-################Used: AD.sh
-
+# Allele depth and SNP
+Used: AD.sh
+```sh
 #!/usr/bin/bash
 #
 # extract allele depth AD from biallelic SNPs that passed filtering
@@ -845,14 +835,13 @@ do
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
 done
+```
+output: ad1_fff_o_lycpool_chrom*.txt and ad2_fff_o_lycpool_chrom*.txt for each chromosome 
+This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
 
-##output: ad1_fff_o_lycpool_chrom*.txt and ad2_fff_o_lycpool_chrom*.txt for each chromosome 
-
-
-###############This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
-
-################I also grapped the SNP information (alleles) using SNP.sh
-
+I also grapped the SNP information (alleles) using:
+SNP.sh
+```sh
 #!/usr/bin/bash
 #
 # extract alleles from biallelic SNPs that passed filtering
@@ -865,12 +854,12 @@ do
         echo "Output is snps_$out"
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > snps_$out &
 done
+```
+output: snps_fff_o_lycpool_chrom*.txt
 
-##output: snps_fff_o_lycpool_chrom*.txt
-
-#####################################################POPULATION GENETIC STRUCTURE FINALLY BITCH########################################################
-
-#####PCA and FST in R on chpc
+# POPULATION GENETIC STRUCTURE FINALLY BITCH
+Need to get this working fully: 
+PCA and FST in R on chpc
 
 getwd()
 setwd()
@@ -921,7 +910,8 @@ for(i in 1:N){
 dev.off()
 ##view file in directory in chpc with xdg-open
 
-############FST###########
+# FST
+Not fully working yet
 
 P<-vector("list",23)
 n<-vector("list",23)
@@ -944,14 +934,14 @@ for(i in 1:N){
 	Nas[[i]]<-apply(is.na(P[[i]][,-reps]),1,sum)
 
 }
-## retain 0.02 percent with the appropriate conditions
+#retain 0.02 percent with the appropriate conditions
 keepSNPs<-vector("list",23)
 prop<-0.0002
 for(i in 1:N){
 	xx<-which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]]==0)
 	keepSNPs[[i]]<-sort(sample(xx,floor(length(mnP[[i]])*prop),replace=FALSE))
 }
-### this gave me an error code so I tried this to check the number of eligible snps:
+###this gave me an error code so I tried this to check the number of eligible snps:
 for(i in 1:N){
   xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
   cat("chrom", i, "eligible SNPs:", length(xx), "\n")
@@ -977,7 +967,7 @@ for(i in 1:N){
 
 save(list=ls(),file="fst.rdatV2.1")
 
-## compute all of the pairwise Fst by pair and chromosome (not for each SNP)
+##compute all of the pairwise Fst by pair and chromosome (not for each SNP)
 Npop<-27
 Nx<-(Npop*(Npop-1))/2
 fstGw<-matrix(NA,nrow=Nx,ncol=23)
@@ -999,7 +989,7 @@ for(i in 1:(Npop-1)){
 	}
 }
 
-## plot of mean and 90 quantile per chromsome for each pair
+##plot of mean and 90 quantile per chromsome for each pair
 mord<-c(1,12,18:23,2:11,13:17)
 pdf("FstLycSpcV2.1.pdf",width=8,height=10)
 par(mfrow=c(5,3))
@@ -1017,19 +1007,17 @@ for(i in 1:(Npop-1)){
 }
 dev.off()
 
-## simple plot of Fst continuum, this includes replicates, just sorted median (across chroms) Fst
+##simple plot of Fst continuum, this includes replicates, just sorted median (across chroms) Fst
 plot(sort(apply(fstGw,1,median)),pch=19)
-## pretty sure the uptick at the far right is Alaskc and France
-## same thing just Z
-plot(sort(fstGw[,24]),pch=19) ## very similar
-## and against each other
+##pretty sure the uptick at the far right is Alaskc and France
+##same thing just Z
+plot(sort(fstGw[,24]),pch=19) ## very similar and against each other
 plot(apply(fstGw,1,median),fstGw[,24],pch=19,xlab="Genome median",ylab="Z chrom")
 abline(a=0,b=1)
-## mostly correlated, Z higher
+mostly correlated, Z higher
 
 ### window examples
-
-### populations are from the ID.txt file and designated by i<-1 and j<-27
+populations are from the ID.txt file and designated by i<-1 and j<-27
 
 ##ABM20 and YG20
 
@@ -1072,7 +1060,7 @@ for(k in mord){
 dev.off()
 
 
-########## Lotis and SHC11####################33 START 
+Lotis and SHC11
 
 pdf("FstWinsLOTIS_SHC11V2.pdf",width=8,height=9)
 par(mfrow=c(3,2))
@@ -1093,7 +1081,7 @@ for(k in mord){
 dev.off()
 
 ########### Corrected code and the errors: Ht and Hs are already computed and have 
-### length =length(keep). But Ht[keep] and Hs[keep] was indexing a short vector and 
+###length =length(keep). But Ht[keep] and Hs[keep] was indexing a short vector and 
 ##producing NAs. Here is the corrected code (I think)
 
 pdf("FstWinsLOTIS_SHC11V2.pdf", width=8, height=9)
@@ -1115,11 +1103,8 @@ for(k in mord){
   title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
 }
 dev.off()
-
-##### Doing the same for my broken ones (will be labelled V2)
-
-
-########Lotis and YG20
+Doing the same for my broken ones (will be labelled V2)
+Lotis and YG20
 
 
 pdf("FstWinsLOTIS_YG20V2.pdf",width=8,height=9)
@@ -1142,7 +1127,7 @@ dev.off()
 
 
 ##get lengths and number of snps for FstLycspc to see if it is actually the z that is popping out as odd##
-##################TBY11 and TBY51
+TBY11 and TBY51
 
 pdf("FstWinsTBY51_TBY11.pdf",width=8,height=9)
 par(mfrow=c(3,2))
@@ -1182,9 +1167,7 @@ for(k in mord){
   title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
 }
 dev.off()
-
-
-###########BAT49 and BAT20
+BAT49 and BAT20
 
 pdf("FstWinsBAT49_BAT20.pdf",width=8,height=9)
 par(mfrow=c(3,2))
@@ -1204,7 +1187,7 @@ for(k in mord){
 }
 dev.off()
 
-###############V2
+## V2
 pdf("FstWinsBAT49_BAT20V2.pdf", width=8, height=9)
 par(mfrow=c(3,2))
 par(mar=c(4.5,5,2.5,.5))
@@ -1312,19 +1295,14 @@ dev.off()
 
 
 
-
-
-
-
-
-
-##### Compute the invariant site counts to put into the beast file #####
+## Compute the invariant sites
+## NOT WORKING YET
 
 ComputeInvariant.R
 
-## determines the number of invariant bases to add to the beast XML file
-## read in base counts (A, C, G, T) by scaffold from the genome 
-## get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
+#determines the number of invariant bases to add to the beast XML file
+#read in base counts (A, C, G, T) by scaffold from the genome 
+#get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
 cnts<-read.table("baseCounts.txt",header=FALSE)
 ## get big scaffolds, top 23
 totals<-apply(cnts[,-1],1,sum)
@@ -1359,9 +1337,10 @@ invar
 
 
 
-######### Making input files for BEAST first ###################
-###############mkBeastDat.R################
-
+# input files for BEAST 
+Generated with:
+mkBeastDat.R
+```r
 library(data.table)
 
 a1f<-list.files(pattern="ad1_fff")
@@ -1407,18 +1386,14 @@ for(i in 1:N){
         }
         
 }
+```
+output max_chromad1_fff_o_lycpool_chrom*.fasta
+for round 2 output is max_chromad1V2_fff_o_lycpool_chrom*.fasta  . the output here should be ATGC by population
+Did not need to use SubAlign.pl to drop rep pop samples
 
-
-##output max_chromad1_fff_o_lycpool_chrom*.fasta
-
-##for round 2 output is max_chromad1V2_fff_o_lycpool_chrom*.fasta
-##the output here should be ATGC by population
-
-########## Did not need to use SubAlign.pl to drop rep pop samples #######
-
-######Used mkNumericFasta.pl to convert alignments to numeric ################
-##mkNumericFasta.pl##
-
+## Used mkNumericFasta.pl to convert alignments to numeric 
+mkNumericFasta.pl
+```pl
 #!/usr/bin/perl
 
 ## this is to figure out which SNPs are variable in the fasta
@@ -1433,18 +1408,17 @@ foreach $i (1..23){
 
 	system "grep -v \"^>\" max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > sub_max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom$i.fasta\n"; 
  
+```
+output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
+output is now numeric 
+(plain sub_max_chrom is AGTC format, not numeric)
 
-##output: sub_max_chromV2ad1_fff_o_lycpool_chrom*.fasta
-##output is now numeric 
-
-## (plain sub_max_chrom is AGTC format, not numeric)
-
-########## then used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs#######################
-## This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
-## GetSNPSubstMax.R ##
-
-## identify SNPs from the alignments that are variable in the alignmentsw
-## and subsample these
+# Filter snps
+Used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs. This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
+GetSNPSubstMax.R
+```r
+##identify SNPs from the alignments that are variable in the alignment
+##subsample these
 
 library(data.table)
 
@@ -1467,14 +1441,12 @@ for(i in 1:23){
         write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
 }
 save(list=ls(),file="snps_max.rdat")
+```
+output: snps_max.rdat AND keepSNPS_max_chrom*
+Then created combined across chromosomes fasta alignment filent file with just subset of SNPs with SubSetFasta.pl and converted to .nex file for beauti
 
-
-##output: snps_max.rdat AND keepSNPS_max_chrom*
-
-###### Then created combined across chromosomes fasta alignment filent file with just subset of SNPs with SubSetFasta.pl and converted to nex file for beauti
-
-##SubSetFasta.pl
-
+SubSetFasta.pl
+```pl
 
 #!/usr/bin/perl
 #
@@ -1522,15 +1494,17 @@ foreach $pop (sort keys %seq){
 	}
 }
 close(OUT);
-
+```
 In terminal: seqmagick convert --output-format nexus --alphabet dna lyc_genomemax.fasta lyc_genomemax.nex
+output: lyc_genomemax.fasta and .nexx
 
-##output: lyc_genomemax.fasta and .nexx
-
-################## making the input file beauti for BEAST ##############
+# Beauti model parameters
+```
 ml beast
 beauti
-used lyc_genomemax.nex as input for beauti (import alignment from partitions)
+```
+used lyc_genomemax.nex as input for beauti (import alignment from partitions)- run inclding BAT49 and TBY51
+
 didn't use tip dates
 Site model- 
 	gamma. Gamma category count: 4. Shape= 1
@@ -1556,8 +1530,8 @@ For these all estimate boxes are left empty (in code they will = false)
 	rateAT- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
 	rateCG- gamma,  dim= 1 -> inf, alpha= .05, beta=10, offset= 0, mode=shapescale?
 	rateGT- gamma,  dim= 1 -> inf, alpha= .05, beta=20, offset= 0, mode=shapescale?
-	TMRCAALL.prior-all taxon, mean = 5.22, sigma=.283, offset= 0, monophyletic- true, normal distribution 
-	TMRCALyc.prior- all taxon but outgrou MEN, mean=2.4, sigma= .283, offset= 0, monophyletic= true, normal distribution 
+	TMRCAALL.prior-all taxon, mean = 2.125, sigma=.53, offset= 0, monophyletic- true, normal distribution 
+	TMRCALyc.prior- all taxon but outgrou MEN, mean=1.29, sigma= .53, offset= 0, monophyletic= true, normal distribution 
 MCMC
 Coupled MCMC
 	Chains:5
@@ -1571,22 +1545,24 @@ Store every 25000
 Pre burnin 400
 Number initialization attempts: 800
 
-last run saved as lyc_wgs_max_ranlc4.xml
+last run saved as lyc_wgs_max_ranlc4.xml- with both BAT49 and TBY51
+Note: if i were to do this run again, need to update the means and sigmas for the priors on lyc and lycall. 
+Also, in the .xml file, need to put the invariant site counts. For now I'm using Zachs until I figure out my own:  
+```
+<data id='lyc_genomemax' spec='FilteredAlignment' filter='-' data='@lyc_genomemaxOrig' constantSiteWeights='50190 28322 28284 50114'>
+    </data>
+```
+Be sure to change file name too
 
+# CASTER 
+For cASTER to work, run: ml gcc/13.3.0
+Caster and Beast use same input file for mkBeastDat.R, so these already exist, but to be sure and to match with zachs, ran with sub_max instead of max
 
+output sub_max_chromad1_fff_o_lycpool_chrom*.fasta
+Zach also used SubAlign.pl here, but I do not need to because I have no replicate pops
 
-
-################# CASTER #########################
-
-##FOR CASTER TO WORK NEED TO ml gcc/13.3.0
-
-## Caster and Beast use same input file for mkBeastDat.R, so these already exist, but to be sure and to match with zachs, ran with sub_max instead of max
-##output sub_max_chromad1_fff_o_lycpool_chrom*.fasta
-
-##Zach also used SubAlign.pl here, but I do not need to because I have no replicate pops##
-
-###From here I am running RunCasterSite.pl ###
-
+From here I am running RunCasterSite.pl 
+```pl
 #!/usr/bin/perl
 #
 
@@ -1628,8 +1604,10 @@ for(i in 1:23){
 }
 
 dev.off()
+```
 
 ## trying to clean things up
+```r
 trees<-vector("list",23)
 for(i in 1:23){
 	inf<-paste("CASTcout_max_",i,sep="")
@@ -1649,8 +1627,9 @@ for(i in 1:23){
 }
 
 dev.off()
-
+```
 ## formated version of figure
+```
 pdf("fig_caster.pdf",width=8,height=10)
 par(mfrow=c(4,6))
 par(mar=c(1,1,1,1))
@@ -1660,23 +1639,22 @@ for(i in 1:23){
 }
 
 dev.off()
+```
+should have output pdf's here
 
-### should have output pdf's here##
+# Window based analyses with cASTER
 
-###Window based analyses with cASTER###
+im afraid hahahahahaaaaa
 
-##im afraid hahahahaha###
+Now I have no idea what's going on I need somebody to hold my hand
 
-
-#### Now I have no idea what's going on I need somebody to hold my hand####
-
-###running anumber of sliding window analyses with CASTER. ### 
-## Zach says: For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 kb windows, then average over sets of 5 windows to plot 
+## running anumber of sliding window analyses with CASTER. 
+Zach says: For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 kb windows, then average over sets of 5 windows to plot 
 normalized (sum to 1) scores across the genome. I have one sub-directory for each set of taxa. The basic commands look like this (executed from 
 within the sub-directory with a mapping file, Sub* file and symbolic links to the sub_max* alignments)######
 
-####What did I do? Ran WinSubAlign.pl####
-
+What did I do? Ran WinSubAlign.pl
+```pl
 #!/usr/bin/perl
 #
 # keep only a subset of taxa
@@ -1708,21 +1686,20 @@ foreach $fa (@ARGV){
         close(IN);
         close(OUT);
 }
-
-######AND######
-
-##RunWindows.pl###
+```
+AND
+RunWindows.pl:
+```pl
 #!/usr/bin/perl
 #
 for $i (1..23){
         system "../wins/MASTERWORK/bin/slidingwindow SubABMxSINxTBY_sub_max_chrom$i.fasta MappingABMxSINxTBY.txt > winout$i.tsv\n";
 }
+```
+The results were summarized with 
+Win.Test.R
 
-#### The results were summarized with 
-
-##Win.Test.R
-
-
+```R
 ## 10 kb windows HJxVExSIN
 # A = HJ, B = VE, C = SIN
 # intraspecific only? 
@@ -1772,14 +1749,7 @@ abline(v=bnds)
 axis(2)
 axis(1,mids,c(1:22,"Z"))
 dev.off()
-
-
-bayesian skyline analysis demographic reconstruction from poolseq data- moments or dotti maybe?
-wing patterns- more than 5
-
-
-
-
+```
 
 TO LOOK AT THE CASTER TREE: java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
 ########################## Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files #####################################
