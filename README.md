@@ -3293,6 +3293,44 @@ Latest tree: lyc_wgs_ranlc_noBAT49_V2.trees
 Calibration correct here, need to fix invariant sites
 
 
+# Trying to compute the invariants.....again
+Done in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/noBAT49
+Just doing noBAT49 first. Run with countBases.pl to make baseCounts_noBAT49_v2.txt
+
+countBases.pl
+```pl
+#!/usr/bin/perl
+
+open(IN, "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta") or die "failed to read\n";
+#open(IN, "Lmel_dovetailPacBio_genome.fasta") or die "failed to read\n";
+while(<IN>){
+	chomp;
+	if(m/^>(\S+)/){
+		$scaf = $1;
+		$cnts{$scaf};
+	} else{
+		$A = $_ =~ tr/Aa/Aa/;
+		$C = $_ =~ tr/Cc/Cc/;
+		$G = $_ =~ tr/Gg/Gg/;
+		$T = $_ =~ tr/Tt/Tt/;
+		$cnts{$scaf}{'a'} += $A;
+		$cnts{$scaf}{'c'} += $C;
+		$cnts{$scaf}{'g'} += $G;
+		$cnts{$scaf}{'t'} += $T;
+	}
+}
+
+foreach $scaf (sort keys %cnts){
+	print "$scaf";
+	foreach $base (sort keys %{$cnts{$scaf}}){
+		print " $cnts{$scaf}{$base}";
+	}
+	print "\n";
+}
+```
+perl countBases.pl > baseCounts_noBAT49_V2.txt
+Output: baseCounts_noBAT49_V2.txt
+
 
 
 
