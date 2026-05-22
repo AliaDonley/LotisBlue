@@ -1,0 +1,30 @@
+An allele frequency spectrum- tracks how many variants exist at different frequecy levels in and among populations. 
+Unfolded- required knowing which alleles are ancestral (original) and which are derived (mutant). So reference vs other?
+Folded- origin of alleles are unknown (could be poor reference genome). This type of spectrum stores the frequencies of minor/rare alleles. How- binning together the first and last entries, second and second to last, all the way up. 
+
+# Importing data
+Need to create a frequency spectrum (fs) from my AD files. AD files should be filtered but not thinned. 
+EX: fs = dadi.Spectrum([0, 100, 20, 10, 1, 0])
+
+This creates a spectrum object, representing the FS from a SINGLE population. Given the size of my dataset, I want to focus on automatic methods of generating a spectrum object. To do this, I'll load a pre-generated FS from a file using: fs = dadi.Spectrum.from_file(filename) 
+
+# Frequency spectrum file format
+Each file begins with anny number of comment lines beginning with #
+First non-comment line contain P integers, giving dimensions of the FS array. P is the number of pops represented (2 in this case).
+For a FS representing data from 4x4x2 samples (I assume 2 pops, 4 observations/samples/...sites?) will have the dimensions 5x5x3 (Each dimension is one larger than the number of samples, because the number of observations can range, for example, from 0 to 4 if there are 4 samples, for a total of 5 possibilities.)
+
+On the same line, the string 'folded' or 'unfolded' denoting if the FS is folded. See above for difference. 
+
+# Types of Data Files for input
+#VCF
+The file corresponding to the Spectrum fs can be written using the command: fs.to_file(filename)
+Data can be loaded from VCF files using: make_data_dict_vcf in dadi .Misc submodule. This requires the name of the VCF (can by zipped up [*.vcf.ga]). Second half of the file is txt, two column containing the individual names in one and their respective pop in column 2. 
+
+To generate the FS with .vcf files, need to create a data dictionary following: 
+dd = dadi.Misc.make_data_dict_vcf("example.vcf.gz", "popfile.txt")
+fs = dadi.Spectrum.from_data_dict(dd, ['pop0', 'pop1'], projections = [20, 30], polarized = False)
+
+#SNP
+The method Spectrum.from_data_dict can be used to create a Spectrum using: fs = Spectrum.from_data_dict(dd, pop_id = ['YRI', 'CEU'], projections = [10, 12], polarized = True)
+pop_ids specifies which populations to use to create the FS and their order
+projections denotes the population sample sizes for resulting FS
