@@ -71,7 +71,28 @@ Demographic model specifies pop sizes, migration rates as a function of time, an
 he demographic model function, by default the mutation parameter θ=4Nrefμ is set to 1. This is because the optimal θ for a given model and set of data is trivial to calculate, so dadi by default does this automatically in optimization (so-called "multinomial" optimization). See the Fixed θ section for how to fix theta to a particular value in a demographic model (https://dadi.readthedocs.io/en/latest/user-guide/specifying-a-model/)
 
 
+don't use thinning for beast step
+raw ad files of all 27 populations
+GA CT ones gone
+demographic stuff
+filter from raw ad files. GATK and C=GACT out filtered already 
+min 10x for both
+going to fold it- unfolded is polarized for ancestral alleles
+project down
+allele counts in ad files not tied to individual
 
+calculate af from ad files (ad already filtered for GATK, GACT and coverage 10x)
+estimating af for sample put in 11 individuals, 22 gene copies
+A- 11 T-11 if af are .5 for each
+round to integer values
+
+in dadi
+project down to 10
+so 22 down to 10 (5 diploids or 10 haploids)
+
+ad to af to counts to down sampling in dadi
+
+make a fake allelle count to make sure it works
 
 
 
