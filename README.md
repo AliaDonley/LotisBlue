@@ -1299,11 +1299,10 @@ dev.off()
 ## NOT WORKING YET
 
 ComputeInvariant.R
-
-#determines the number of invariant bases to add to the beast XML file
-#read in base counts (A, C, G, T) by scaffold from the genome 
-#get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
+determines the number of invariant bases to add to the beast XML file. Reads in base counts (A, C, G, T) by scaffold from the genome 
+get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
 cnts<-read.table("baseCounts.txt",header=FALSE)
+```sh
 ## get big scaffolds, top 23
 totals<-apply(cnts[,-1],1,sum)
 rev(sort(totals))[1:23]
@@ -1317,7 +1316,7 @@ chr<-which(totals >= 9211676)
 bcnt<-apply(cnts[chr,-1],2,sum)
 
 ## multiply by 0.00035 to match subsetting for SNP data
-prop<-0.00035
+prop<-0.00035 ##Change this depending on what was computed
 sbcnt<-floor(bcnt*prop)
 
 ## get SNP bases
@@ -1329,15 +1328,16 @@ invar<-sbcnt-snpCnts
 invar
 #   A    C    G    T 
 #50190 28322 28284 50114
+These are zachs numbers
+
+```
 
 
 
 
 
 
-
-
-# input files for BEAST 
+# Input files for BEAST 
 Generated with:
 mkBeastDat.R
 ```r
