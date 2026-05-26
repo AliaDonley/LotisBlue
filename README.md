@@ -3493,7 +3493,40 @@ done
 ```
 output: fff_o_lycpool_chrom*.filtered.vcf
 
+Ran AD.sh to get allele depth counts
+```sh
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering
+#
 
+for f in fff*filtered.vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+```
+output: ad1 and ad2 _fff_o_lycpool_chrom*.filtered.txt
+
+Ran SNP.sh for snp info
+```sh
+#!/usr/bin/bash
+#
+# extract alleles from biallelic SNPs that passed filtering
+#
+
+for f in fff*filtered.vcf
+do
+	echo "Processing $f"
+	out="$(echo $f | sed -e 's/vcf/txt/')"
+	echo "Output is snps_$out"
+	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out
+done
+```
+output: beastfilteredsnps_fff_o_lycpool_chrom9.filtered.txt
 
 
 
