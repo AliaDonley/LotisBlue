@@ -3528,14 +3528,281 @@ done
 ```
 output: beastfilteredsnps_fff_o_lycpool_chrom9.filtered.txt
 
+## skipping pop gen structure for now, will come back to FST and PCA's
 
+# Time calibrated phylogenetic tree
+###going to first check the coverage across chromosomes
+```sh
+# Check number of SNPs per chromosome
+wc -l snpinfo_fff_o_lycpool_chrom*.txt
 
+# Check number of columns (should be 27 for 27 samples)
+awk '{print NF; exit}' ad1_fff_o_lycpool_chrom1.txt
 
+# Peek at first few lines of both ref and alt
+head -3 ad1_fff_o_lycpool_chrom*.filtered.txt
+head -3 ad2_fff_o_lycpool_chrom*.filtered.txt
 
+# Extract chrom, pos, ref, alt for PASS biallelic SNPs
+for vcf in fff_o_lycpool_chrom*.filtered.vcf; do
+    chrom=$(basename "$vcf" .filtered.vcf)
+    grep "^Sc" "$vcf" | grep PASS | grep -v "[ATCG],[ATCG]" | \
+        awk '{print $1"\t"$2"\t"$4"\t"$5}' > snpinfo_${chrom}.txt
+done
 
+# Total SNPs across all chromosomes
+wc -l snpinfo_fff_o_lycpool_chrom*.txt
+##total: 
 
+# Check ad1 and ad2 line counts match snpinfo
+wc -l ad1_fff_o_lycpool_chrom11.txt
+wc -l snpinfo_fff_o_lycpool_chrom11.txt
+Total: 
 
+# Check columns in ad files
+awk '{print NF; exit}' ad1_fff_o_lycpool_chrom11.txt
+```
+# Checking coverage 
+```R
+library(data.table)
+# Get list of all ad1 files and combine all ad1 files
+ad1_files <- list.files(pattern="ad1_fff_o_lycpool_chrom.*\\.filtered\\.txt")
+a1 <- as.matrix(rbindlist(lapply(ad1_files, fread, header=FALSE)))
+# Do the same for ad2
+ad2_files <- list.files(pattern="ad2_fff_o_lycpool_chrom.*\\.filtered\\.txt")
+a2 <- as.matrix(rbindlist(lapply(ad2_files, fread, header=FALSE)))
+# Check dimensions - should be ~10.9 million rows x 27 columns
+dim(a1)
+dim(a2)
+# check actual coverage values
+# Mean coverage per sample
+round(colMeans(cov), 1)
+# Min and max coverage per sample
+round(apply(cov, 2, min), 1)
+round(apply(cov, 2, max), 1)
+# How many sites have 0 coverage per sample
+colSums(cov == 0)
+# Distribution of coverage
+summary(cov)
+```
+with this filtering, we still see BAT49 as the worst pop, and Lotis coming in ahead of TBY51 by about the same proporions we saw without GACT filteirng. Going to do a first run without BAT49
+```R
+library(data.table)
 
+bat49_col <- 3
+lotis_col <- 14
+tby51_col <- 24
+other_cols <- setdiff(1:27, c(bat49_col, lotis_col, tby51_col))
+
+for (chrom in 1:23) {
+  cat("Processing chrom", chrom, "\n")
+  
+  a1 <- as.matrix(fread(paste0("ad1_fff_o_lycpool_chrom", chrom, ".filtered.txt"), header=FALSE))
+  a2 <- as.matrix(fread(paste0("ad2_fff_o_lycpool_chrom", chrom, ".filtered.txt"), header=FALSE))
+  snps <- as.matrix(fread(paste0("snpinfo_fff_o_lycpool_chrom", chrom, ".txt"), header=FALSE))
+  
+  # Remove BAT49 column
+  a1 <- a1[, -bat49_col]
+  a2 <- a2[, -bat49_col]
+  
+  # Recalculate column indices after removing BAT49
+  # LOTIS and TBY51 shift down by 1 since BAT49 (col3) is removed
+  lotis_col_new <- lotis_col - 1  # now col 13
+  tby51_col_new <- tby51_col - 1  # now col 23
+  other_cols_new <- setdiff(1:26, c(lotis_col_new, tby51_col_new))
+  
+  cov <- a1 + a2
+  
+  keep <- apply(cov, 1, function(x) {
+    lotis_ok <- x[lotis_col_new] >= 10 & x[lotis_col_new] <= 500
+    tby51_ok <- x[tby51_col_new] >= 10 & x[tby51_col_new] <= 500
+    others_ok <- all(x[other_cols_new] >= 20) & all(x[other_cols_new] <= 500)
+    lotis_ok & tby51_ok & others_ok
+  })
+  
+  cat("Total SNPs:", length(keep), "\n")
+  cat("SNPs kept:", sum(keep), "\n")
+  cat("SNPs removed:", sum(!keep), "\n\n")
+  
+  a1_filtered <- a1[keep,]
+  a2_filtered <- a2[keep,]
+  snps_filtered <- snps[keep,]
+  
+  fwrite(as.data.table(a1_filtered),
+         file=paste0("ad1_fff_o_lycpool_chrom", chrom, "_noBAT49.filtered.txt"),
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(a2_filtered),
+         file=paste0("ad2_fff_o_lycpool_chrom", chrom, "_noBAT49.filtered.txt"),
+         sep="\t", col.names=FALSE)
+  fwrite(as.data.table(snps_filtered),
+         file=paste0("snpinfo_fff_o_lycpool_chrom", chrom, "_noBAT49.txt"),
+         sep="\t", col.names=FALSE)
+}
+```
+To check snps retained per chrom and that BAT49 actually dropped
+```r
+for(chrom in 1:23){
+    f <- paste0("snpinfo_fff_o_lycpool_chrom", chrom, "_noBAT49.txt")
+    cat("chrom", chrom, ":", nrow(fread(f, header=FALSE)), "SNPs\n")
+}
+ncol(fread("ad1_fff_o_lycpool_chrom1_noBAT49.filtered.txt", header=FALSE))
+
+Total snps
+sum(c(19486,18442,16663,17919,21176,16947,16293,16824,13054,16072,15734,15014,17331,13143,16067,15001,16144,13913,17358,13060,12481,9854,12627))
+```
+total: 360603
+
+# SNP counts and proportions 
+(in bash)
+```sh
+total=360603
+for f in snpinfo_fff_o_lycpool_chrom*_noBAT49.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    count=$(wc -l < $f)
+    echo -e "$chrom\t$count\t$(echo "scale=6; $count/$total" | bc)"
+done | sort -t'm' -k2 -n > snp_counts_proportions_noBAT49.txt
+cat snp_counts_proportions_noBAT49.txt
+
+# Mean total coverage per chromosome per sample
+for f in ad1_fff_o_lycpool_chrom*_noBAT49.filtered.txt; do
+    chrom=$(echo $f | grep -oP 'chrom\d+')
+    f2=$(echo $f | sed 's/ad1/ad2/')
+    paste $f $f2 | awk -v chrom="$chrom" -v ncol=26 '{
+        for (i=1; i<=ncol; i++) {
+            sum[i] += $i + $(i+ncol)
+            count[i]++
+        }
+    }
+    END {
+        for (i=1; i<=ncol; i++)
+            print chrom, i, sum[i]/count[i]
+    }'
+done > mean_coverage_total_noBAT49.txt
+head mean_coverage_total_noBAT49.txt
+```
+
+Making BEAST and CAster input files with noBAT49
+```sh
+library(data.table)
+
+a1f <- list.files(pattern="ad1_fff_o_lycpool_chrom.*_noBAT49\\.filtered\\.txt")
+a1f <- a1f[1:23]
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- list.files(pattern="snpinfo_fff_o_lycpool_chrom.*_noBAT49\\.txt")
+asnp <- asnp[1:23]
+
+N <- length(a1f)
+ids <- read.table("sample_names_noBAT49.txt", header=FALSE)
+
+temp <- gsub("ad1_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49\\.filtered\\.txt", "", temp)
+
+for(i in 1:N){
+    cat(i, "\n")
+    out <- paste0("BEAST_chrom_noBAT49_", chrom[i], ".fasta")
+    
+    a1 <- as.matrix(fread(a1f[i], header=F))
+    a2 <- as.matrix(fread(a2f[i], header=F))
+    n <- a1 + a2
+    p <- a2/(a1 + a2)
+    p[n < 5] <- NA
+    
+    J <- dim(p)[2]  # 26 samples
+    L <- dim(p)[1]
+    
+    snps <- as.data.frame(fread(asnp[i], header=FALSE))
+    
+    for(j in 1:J){
+        nx <- as.numeric(p[,j] > .5) + 1
+        ss <- rep("N", L)
+        jx <- which(is.na(p[,j]) == FALSE)
+        for(l in jx){
+            ss[l] <- snps[l, nx[l]]
+        }
+        SS1 <- paste(ss, collapse="")
+        cat(">", ids[j,2], "\n", file=out, append=TRUE, sep="")
+        cat(SS1, "\n", file=out, append=TRUE, sep="")
+    }
+}
+```
+output: BEAST_chrom_noBAT49_#_.fasta
+And for CASTER:
+```sh
+library(data.table)
+
+a1f <- list.files(pattern="ad1_fff_o_lycpool_chrom.*_noBAT49\\.filtered\\.txt")
+a1f <- a1f[1:23]
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- list.files(pattern="snpinfo_fff_o_lycpool_chrom.*_noBAT49\\.txt")
+asnp <- asnp[1:23]
+
+N <- length(a1f)
+ids <- read.table("sample_names_noBAT49.txt", header=FALSE)
+
+temp <- gsub("ad1_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49\\.filtered\\.txt", "", temp)
+
+for(i in 1:N){
+    cat(i, "\n")
+    out <- paste0("CAST_chrom_noBAT49_", chrom[i], ".fasta")
+    
+    a1 <- as.matrix(fread(a1f[i], header=F))
+    a2 <- as.matrix(fread(a2f[i], header=F))
+    n <- a1 + a2
+    p <- a2/(a1 + a2)
+    p[is.na(p)] <- 0.001
+    
+    J <- dim(p)[2]  # 26 samples
+    L <- dim(p)[1]
+    
+    snps <- as.data.frame(fread(asnp[i], header=FALSE))
+    
+    for(j in 1:J){
+        nx <- rbinom(n=L, size=1, prob=p[,j]) + 1
+        ss <- rep(NA, L)
+        for(l in 1:L){
+            ss[l] <- snps[l, nx[l] + 2]  # +2 to get ref/alt columns
+        }
+        SS1 <- paste(ss, collapse="")
+        cat(">", ids[j,2], "\n", file=out, append=TRUE, sep="")
+        cat(SS1, "\n", file=out, append=TRUE, sep="")
+    }
+}
+```
+output: CAST_chrom_noBAT49_*.fasta
+Check
+```sh
+for chrom in $(seq 1 23); do
+    seq_len=$(grep -v ">" CAST_chrom_noBAT49_${chrom}.fasta | head -1 | tr -cd 'ATCGN' | wc -c)
+    snp_count=$(wc -l < snpinfo_fff_o_lycpool_chrom${chrom}_noBAT49.txt)
+    if [ "$seq_len" -eq "$snp_count" ]; then
+        echo "chrom${chrom}: PASS (${snp_count} SNPs)"
+    else
+        echo "chrom${chrom}: FAIL - sequence length ${seq_len} != snp count ${snp_count}"
+    fi
+done
+```
+Now subset using mkNumericFasta.pl
+```perl
+#!/usr/bin/perl
+## this is to figure out which SNPs are variable in the fasta
+
+foreach $i (1..23){
+    system "grep -v \"^>\" BEAST_chrom_noBAT49_V2_$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > text_chrom_noBAT49_$i.fasta\n";
+}
+```
+Calculate new proportion for about 6K snps in R
+Check proporions in snp_counts_proportions_noBAT49.txt to get proportion counts
+```less snp_counts_proportions.....
+```R
+
+total snps_ 5985
+```
+# Generate invariant counts for beast
+run  countbases.pl to get baseCount
+perl countBases.pl > baseCounts_filteredV2_noBAT49.txt Output:baseCounts_filteredV2_noBAT49.txt
+perl countSNPs_noBAT49.pl > snpCounts_noBAT49_filteredV2.txt
+Rscript ComputeInvariant.R
 
 
 
