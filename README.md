@@ -3804,6 +3804,9 @@ perl countBases.pl > baseCounts_filteredV2_noBAT49.txt Output:baseCounts_filtere
 perl countSNPs_noBAT49.pl > snpCounts_noBAT49_filteredV2.txt
 Rscript ComputeInvariant.R
 
+     V2      V3      V4      V5 
+2133273 1229811 1229100 2130801 
+
 
 
 
