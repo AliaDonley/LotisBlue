@@ -3457,6 +3457,42 @@ Can I use dadi language in moments?
 
 
 
+# Filtering GACT out
+need to redo everything after variant calling. Pipelne goes: alignment- remove pcr duplicates - map damage- variant calling- hard filtering 
+
+Hard filtered with HardFilterGACT.sh
+```sh
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=LycLotis_hardfilter_GACT
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load bcftools
+
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+
+for vcf in fff_o_lycpool_chrom*.vcf; do
+    chrom=$(basename "$vcf" .vcf)
+    echo "Filtering $chrom..."
+
+    bcftools filter \
+        -e '(REF="C" & ALT="T") || (REF="G" & ALT="A")' \
+        "$vcf" \
+        -o "${chrom}.filtered.vcf"
+
+    before=$(bcftools view -H "$vcf" | wc -l)
+    after=$(grep -v "^#" "${chrom}.filtered.vcf" | wc -l)
+    echo "$chrom: $before -> $after variants (removed $((before - after)))"
+done
+```
+output: fff_o_lycpool_chrom*.filtered.vcf
+
 
 
 
