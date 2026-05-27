@@ -3808,6 +3808,7 @@ Rscript ComputeInvariant.R
 2133273 1229811 1229100 2130801 
 
 # Filtered GACT Removing TBY51 (after BAT49 was already done)
+## Generating ad1, ad2 and snp files
 ```r
 library(data.table)
 
@@ -3893,6 +3894,9 @@ for f in ad1_fff_o_lycpool_chrom*_noBAT49_noTBY51_filtered.txt; do
         for (i=1; i<=ncol; i++)
             print chrom, i, sum[i]/count[i]
     }'
+
+# add sample names
+
 done > mean_coverage_total_noBAT49_noTBY51.txt
 head mean_coverage_total_noBAT49_noTBY51.txt
 ```
@@ -3931,7 +3935,8 @@ END {
             printf "\t" val[chrom][poplist[i]]
         printf "\n"
     }
-}' mean_coverage_total_noBAT49_noTBY51_named.txt >> coverage_matrix_noBAT49_noTBY51.txt
+}'
+mean_coverage_total_noBAT49_noTBY51_named.txt >> coverage_matrix_noBAT49_noTBY51.txt
 cat coverage_matrix_noBAT49_noTBY51.txt
 
 # Check all rows have exactly 26 fields (chrom + 25 pops)
@@ -3993,7 +3998,113 @@ for chrom in $(seq 1 23); do
     fi
 done
 ```
+Numeric Fastas
+```perl
+#!/usr/bin/perl
+## convert BEAST fasta to numeric for SNP subsetting
 
+foreach $i (1..23){
+    system "grep -v \"^>\" BEAST_chrom_noBAT49_noTBY51_$i.fasta | perl -pe 'tr/ACGTN/12345/' | sed 's/./& /g' > text_chrom_noBAT49_noTBY51_$i.fasta\n";
+}
+perl mkNumericFasta_noTBY51.pl
+```
+output: text_chrom_noBAT49_noTBY51.fasta
+
+Subsetting snps
+```r
+library(data.table)
+
+miss <- vector("list", 23)
+for(i in 1:23){
+    ifile <- paste0("text_chrom_noBAT49_noTBY51_", i, ".fasta")
+    dat <- fread(ifile, header=FALSE)
+    miss[[i]] <- apply(dat==5, 2, mean)
+}
+
+# Total SNPs from noBAT49_noTBY51
+total_snps <- sum(c(22277, 20489, 18858, 19902, 23617, 18437, 18266, 19136,
+                    15003, 17950, 17563, 16639, 19164, 14663, 17616, 16497,
+                    17742, 15549, 19042, 14712, 13759, 10907, 15198))
+prop <- 6000 / total_snps
+cat("prop =", prop, "\n")
+cat("total_snps =", total_snps, "\n")
+
+keepSNPs <- vector("list", 23)
+for(i in 1:23){
+    xx <- which(miss[[i]] == 0)
+    n_keep <- floor(length(miss[[i]]) * prop)
+    cat("Chrom", i, "- keeping:", n_keep, "from", length(xx), "complete SNPs\n")
+    keepSNPs[[i]] <- sort(sample(xx, n_keep, replace=FALSE))
+}
+
+for(i in 1:23){
+    out <- paste0("keepSNPs_maxProp_noBAT49_noTBY51_chrom", i)
+    write.table(keepSNPs[[i]], file=out, row.names=FALSE, col.names=FALSE, quote=FALSE)
+}
+
+save(list=ls(), file="snps_maxProp_noBAT49_noTBY51.rdat")
+```
+And check it
+```
+total_kept <- sum(sapply(keepSNPs, length))
+cat("Total SNPs kept:", total_kept, "\n")
+
+# Confirm no missing data
+for(i in 1:23){
+    ifile <- paste0("text_chrom_noBAT49_noTBY51_", i, ".fasta")
+    dat <- as.matrix(fread(ifile, header=FALSE))
+    kept <- keepSNPs[[i]]
+    n_missing <- sum(dat[, kept] == 5)
+    cat("Chrom", i, "- SNPs kept:", length(kept), "- missing data:", n_missing, "\n")
+}
+```
+SubSetFasta.pl
+```perl
+#!/usr/bin/perl
+foreach $i (1..23){
+        open(IN,"keepSNPs_maxProp_noBAT49_noTBY51_chrom$i") or die "failed to open snps file $i\n";
+        while(<IN>){
+                chomp;
+                push (@{$snps[$i]},$_);
+        }
+        close(IN);
+}
+open(OUT, ">lyc_genomemax_noBAT49_noTBY51.fasta") or die "failed to write\n";
+%seq;
+foreach $i (1..23){
+        open(IN,"BEAST_chrom_noBAT49_noTBY51_$i.fasta") or die "failed to open snps file $i\n";
+        while(<IN>){
+                chomp;
+                if(m/^>(\S+)/){
+                        $id = $1;
+                        if($i == 1){
+                                @{$seq{$id}} = ();
+                        }
+                } else {
+                        foreach $snp (@{$snps[$i]}){
+                                $c = substr $_,$snp-1, 1;
+                                unless(length($c)==1){
+                                        print "$c\n";
+                                }
+                                push(@{$seq{$id}}, $c);
+                        }
+                }
+        }
+        close(IN);
+}
+
+foreach $pop (sort keys %seq){
+        $str = join("",@{$seq{$pop}});
+        unless($pop =~ m/rep/){
+                $pop =~ s/Lyc-//;
+                print OUT ">$pop\n";
+                print OUT "$str\n";
+        }
+}
+close(OUT);
+```
+file name: SubsetFasta_noTBY51.pl
+output: lyc_genomemax_noBAT49_noTBY51.fasta
 
 
 
@@ -4051,6 +4162,33 @@ seqmagick convert --output-format nexus --alphabet dna \
     lyc_genomemax_noBAT49_noTBY51.fasta \
     lyc_genomemax_noBAT49_noTBY51.nex
 
+
+
+CASTER trees
+```r
+> library(ape)
+> pdf ("CasterTrees_noBAT49_noTBY51.pdf", width=9, height=9)
+> par(mfrow=c(3,3))
+> par(mar=c(1,1,3,1))
+> for(i in 1:23){
++ inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
++ tree<-read.tree(inf)
++ plot.phylo(tree,cex=.7,use.edge.length=FALSE)
++ title(main=paste("Chrom.",i),cex.main=1.3)
++ }
+>
+> pdf ("CasterTreesMax_noBAT49_noTBY51.pdf", width=9, height=9)
+> par(mfrow=c(3,3))
+> par(mar=c(1,1,3,1))
+> for(i in 1:23){
++ inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
++ tree<-read.tree(inf)
++ plot.phylo(tree,cex=.7,use.edge.length=FALSE,type="cladogram")
++ title(main=paste("Chromosome",i),cex.main=1.3)
++ }
+> dev.off()
+```
+outputs: CasterTreesMax_noBAT49_noTBY51.pdf  CasterTrees_noBAT49_noTBY51.pdf
 
 
 
