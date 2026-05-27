@@ -2994,8 +2994,6 @@ foreach $scaf (sort keys %cnts){
     }
     print "\n";
 }
-EOF
-
 perl countSNPs_noTBY51.pl > snpCounts.txt
 ```
 Check output
