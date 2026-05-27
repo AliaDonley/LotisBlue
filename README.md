@@ -4164,27 +4164,26 @@ seqmagick convert --output-format nexus --alphabet dna \
 
 CASTER trees
 ```r
-> library(ape)
-> pdf ("CasterTrees_noBAT49_noTBY51.pdf", width=9, height=9)
-> par(mfrow=c(3,3))
-> par(mar=c(1,1,3,1))
-> for(i in 1:23){
-+ inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
-+ tree<-read.tree(inf)
-+ plot.phylo(tree,cex=.7,use.edge.length=FALSE)
-+ title(main=paste("Chrom.",i),cex.main=1.3)
-+ }
->
-> pdf ("CasterTreesMax_noBAT49_noTBY51.pdf", width=9, height=9)
-> par(mfrow=c(3,3))
-> par(mar=c(1,1,3,1))
-> for(i in 1:23){
-+ inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
-+ tree<-read.tree(inf)
-+ plot.phylo(tree,cex=.7,use.edge.length=FALSE,type="cladogram")
-+ title(main=paste("Chromosome",i),cex.main=1.3)
-+ }
-> dev.off()
+library(ape)
+pdf ("CasterTrees_noBAT49_noTBY51.pdf", width=9, height=9)
+par(mfrow=c(3,3))
+par(mar=c(1,1,3,1))
+for(i in 1:23){
+	inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
+	tree<-read.tree(inf)
+	plot.phylo(tree,cex=.7,use.edge.length=FALSE)
+	title(main=paste("Chrom.",i),cex.main=1.3)
+ }
+ pdf ("CasterTreesMax_noBAT49_noTBY51.pdf", width=9, height=9)
+par(mfrow=c(3,3))
+par(mar=c(1,1,3,1))
+for(i in 1:23){
+	inf<- paste("cout_noBAT49_noTBY51_", i, sep="")
+	tree<-read.tree(inf)
+	plot.phylo(tree,cex=.7,use.edge.length=FALSE,type="cladogram")
+	title(main=paste("Chromosome",i),cex.main=1.3)
+}
+dev.off()
 ```
 outputs: CasterTreesMax_noBAT49_noTBY51.pdf  CasterTrees_noBAT49_noTBY51.pdf
 
