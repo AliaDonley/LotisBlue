@@ -4207,9 +4207,20 @@ for(i in 1:23){
 	title(main=paste("Chromosome",i),cex.main=1.3)
 }
 dev.off()
+```
 outputs: CasterTreesMax_noBAT49_noTBY51.pdf  CasterTrees_noBAT49_noTBY51.pdf
-
-
+to run caster.pl in bash:
+perl -e '
+foreach $i (1..23){
+    system "/uufs/chpc.utah.edu/common/home/u6047808/bin/ASTER-Linux/bin/caster-site -i CAST_chrom_noBAT49_filteredV2_$i.fasta -o cout_noBAT49_filtered_$i --root Lyc-MEN12 --thread 24\n";
+}
+'
+and 
+perl -e '
+foreach $i (1..23){
+    system "/uufs/chpc.utah.edu/common/home/u6047808/bin/ASTER-Linux/bin/caster-site -i CAST_chrom_noBAT49_noTBY51_$i.fasta -o cout_noBAT49_noTBY51_$i --root Lyc-MEN12 --thread 24\n";
+}
+'
 
 
 
