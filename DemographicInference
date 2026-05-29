@@ -92,7 +92,55 @@ so 22 down to 10 (5 diploids or 10 haploids)
 
 ad to af to counts to down sampling in dadi
 
-make a fake allelle count to make sure it works
+make a fake allelle count to make sure it works- just tried chrom 11
+
+Calculated allele frequencies on chrom 11 using calc_allele_freq.py, which looks like:
+```py
+
+
+
+
+```
+And it was ran with:
+```py
+python3 calc_allele_freqs.py \
+    --ad1      ad1_fff_o_lycpool_chrom11_noBAT49_noTBY51_filtered.txt \
+    --ad2      ad2_fff_o_lycpool_chrom11_noBAT49_noTBY51_filtered.txt \
+    --snpinfo  snpinfo_fff_o_lycpool_chrom11_noBAT49_noTBY51_filtered.txt \
+    --popnames sample_names_clean.txt \
+    --out      allele_freqs_chrom11.txt
+```
+
+Looked good after cleaning up the file names to not have numbers. Ran on all other chroms and snp info:
+for chrom in chrom1 chrom2 chrom3 chrom4 chrom5 chrom6 chrom7 chrom8 chrom9 chrom10 chrom11 chrom12 chrom13 chrom14 chrom15 chrom16 chrom17 chrom18 chrom19 chrom20 chrom21 chrom22 chrom23; do
+    echo "Processing $chrom..."
+    python3 calc_allele_freqs.py \
+        --ad1      ad1_fff_o_lycpool_${chrom}_noBAT49_noTBY51_filtered.txt \
+        --ad2      ad2_fff_o_lycpool_${chrom}_noBAT49_noTBY51_filtered.txt \
+        --snpinfo  snpinfo_fff_o_lycpool_${chrom}_noBAT49_noTBY51_filtered.txt \
+        --popnames sample_names_clean.txt \
+        --out      allele_freqs_${chrom}.txt
+    echo "Done $chrom"
+done
+```
+output: allele_freqs_chrom*.txt
+ Now I concatenate them into one big af file. keeping the header from chrom 1 and skipping the rest to avaoid duplication
+```py
+head -1 allele_freqs_chrom1.txt > allele_freqs_all.txt
+for chrom in chrom1 chrom2 chrom3 chrom4 chrom5 chrom6 chrom7 chrom8 chrom9 chrom10 chrom11 chrom12 chrom13 chrom14 chrom15 chrom16 chrom17 chrom18 chrom19 chrom20 chrom21 chrom22 chrom23; do
+    tail -n +2 allele_freqs_${chrom}.txt >> allele_freqs_all.txt
+done
+```
+and check with
+```wc -l allele_freqs_all.txt
+head -2 allele_freqs_all.txt | cut -f1-6
+```
+# 402,986 SNPs across 23 chromosomes
+##lotis had 17 individuals and shc11 had 46
+##Because lotis is smaller, we're going to project down to 34 (haploids)
+
+
+
 
 
 
