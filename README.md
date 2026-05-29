@@ -21,7 +21,7 @@ Insert table here
 | GNP		 | GNP17 (56) | L. iads  |
 | HJ         | HJ20 (48)  | L. melissa |
 | HNV        | HNV17 (48) | JH (admixed) |
-| LOTIS      | LOTIS ()   | L. anna lotis |
+| LOTIS      | LOTIS (14)   | L. anna lotis |
 | LS		 | LS19 (48	  | L. anna |
 | MEN        | MEN12 (10) | L. argyrognomon (France) |
 | MR         | MR20 (48)  | Sierra (admixed) |
