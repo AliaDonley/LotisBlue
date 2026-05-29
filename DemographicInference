@@ -377,17 +377,152 @@ if __name__ == "__main__":
     main()
 
 ```
-outpust: 
+outputs: 
 Lyc-LOTIS_Lyc-SHC11.fs- spectrum format for dadi/moments
 Lyc-LOTIS_Lyc-SHC11_matrix.txt- basically the same but can open it in R
 
+Ran with:
+python3 build_joint_sfs.py \
+    --freqs  allele_freqs_all.txt \
+    --pop1   Lyc-LOTIS \
+    --pop2   Lyc-SHC11 \
+    --n1     14 \
+    --n2     92 \
+    --out    Lyc-LOTIS_Lyc-SHC11_n14_n92.fs
+
+
+##No warnings this time. Looked at the values first to see if they looked right:
+head -5 Lyc-LOTIS_Lyc-SHC11_n14_n92_matrix.txt | cut -f1-10
 
 
 
 
 
+#####################################33
+#!/usr/bin/env python3
+"""
+plot_joint_sfs.py
+=================
+Plot a 2D joint SFS as a heatmap.
+
+Usage
+-----
+  python plot_joint_sfs.py \
+      --fs    Lyc-LOTIS_Lyc-SHC11_n14_n92.fs \
+      --pop1  Lyc-LOTIS \
+      --pop2  Lyc-SHC11 \
+      --out   Lyc-LOTIS_Lyc-SHC11_sfs.pdf
+"""
+
+import argparse
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend for CHPC
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+
+try:
+    import moments
+    HAS_MOMENTS = True
+except ImportError:
+    HAS_MOMENTS = False
+
+try:
+    import dadi
+    HAS_DADI = True
+except ImportError:
+    HAS_DADI = False
 
 
+def parse_args():
+    p = argparse.ArgumentParser(description="Plot 2D joint SFS as heatmap")
+    p.add_argument("--fs",   required=True, help="Input .fs file")
+    p.add_argument("--pop1", required=True, help="Population 1 name (x-axis)")
+    p.add_argument("--pop2", required=True, help="Population 2 name (y-axis)")
+    p.add_argument("--out",  required=True, help="Output figure file (pdf or png)")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    # Load the SFS
+    if HAS_MOMENTS:
+        import moments
+        fs = moments.Spectrum.from_file(args.fs)
+    elif HAS_DADI:
+        import dadi
+        fs = dadi.Spectrum.from_file(args.fs)
+    else:
+        raise ImportError("Neither moments nor dadi is installed.")
+
+    # Make a copy with corners unmasked for plotting
+    fs_plot = np.array(fs)
+    fs_plot[0, 0] = np.nan   # mask corner as NaN so it shows as white
+
+    # ── Figure 1: log-scale heatmap of full SFS ──────────────────────────────
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Left panel: full SFS including [0,0] region — log scale
+    ax = axes[0]
+    data = np.array(fs) + 1e-10  # avoid log(0)
+    data[0, 0] = np.nan
+    im = ax.imshow(
+        np.log10(data).T,
+        origin="lower",
+        aspect="auto",
+        cmap="viridis",
+        interpolation="nearest"
+    )
+    plt.colorbar(im, ax=ax, label="log10(count)")
+    ax.set_xlabel(f"{args.pop1} alt allele count", fontsize=11)
+    ax.set_ylabel(f"{args.pop2} alt allele count", fontsize=11)
+    ax.set_title("Joint SFS (log10 scale)", fontsize=12)
+
+    # Right panel: zoom in — exclude first row and column to see polymorphic sites
+    ax = axes[1]
+    data_zoom = np.array(fs)[1:, 1:] + 1e-10
+    im2 = ax.imshow(
+        np.log10(data_zoom).T,
+        origin="lower",
+        aspect="auto",
+        cmap="viridis",
+        interpolation="nearest"
+    )
+    plt.colorbar(im2, ax=ax, label="log10(count)")
+    ax.set_xlabel(f"{args.pop1} alt allele count (excl. 0)", fontsize=11)
+    ax.set_ylabel(f"{args.pop2} alt allele count (excl. 0)", fontsize=11)
+    ax.set_title("Joint SFS — polymorphic sites only (log10 scale)", fontsize=12)
+
+    plt.suptitle(f"{args.pop1} vs {args.pop2}", fontsize=13, fontweight="bold")
+    plt.tight_layout()
+    plt.savefig(args.out, dpi=150, bbox_inches="tight")
+    print(f"Saved figure -> {args.out}")
+
+    # ── Print marginal SFS for each population ────────────────────────────────
+    marginal1 = np.array(fs).sum(axis=1)  # sum over pop2 axis
+    marginal2 = np.array(fs).sum(axis=0)  # sum over pop1 axis
+
+    print(f"\nMarginal SFS for {args.pop1} (summed over {args.pop2}):")
+    for i, v in enumerate(marginal1):
+        print(f"  count {i:3d}: {v:.1f}")
+
+    print(f"\nMarginal SFS for {args.pop2} (summed over {args.pop1}):")
+    for i, v in enumerate(marginal2[:20]):  # just first 20 bins
+        print(f"  count {i:3d}: {v:.1f}")
+    print("  ...")
+
+
+if __name__ == "__main__":
+
+```
+Spike at count 14 for lotis- it's the maximum possible because n=14. 
+If ref/alt allele assignment is not ancestral could see this
+
+bright yellow left: lotis count=0
+bright yellow right edge: lotis count=14
+bright yellow top right- sites where alt allele is @ higher freq in both
+bottom bright: sch11 count =0. 
 
 
 
