@@ -97,8 +97,83 @@ make a fake allelle count to make sure it works- just tried chrom 11
 Calculated allele frequencies on chrom 11 using calc_allele_freq.py, which looks like:
 ```py
 
+#!/usr/bin/env python3
+import argparse           ##command line arguments like ad1 and popnames
+import sys                ##exit with error message
+import numpy as np     ##numeric operations on array
+import pandas as pd     ## read/write tab-delimited files
 
+def parse_args():    ##what arguments accepted from each command line. 
+    p = argparse.ArgumentParser(description="Compute allele frequencies from pool-seq depth files")
+    p.add_argument("--ad1",      required=True)    ##add argument will corespond to one of the flags when I run script. Required=true: script will show an error if I miss providing info
+    p.add_argument("--ad2",      required=True)
+    p.add_argument("--snpinfo",  required=True)
+    p.add_argument("--popnames", required=True)
+    p.add_argument("--out",      required=True)
+    return p.parse_args()
 
+def load_popnames(path):            ## reads pop names with provided format. if has no number prefix (which i got rid of) ,it just takes whole line
+    with open(path) as fh:
+        names = [line.strip() for line in fh if line.strip()]
+    return names
+
+def main():
+    args = parse_args()
+    popnames = load_popnames(args.popnames)
+    n_pops = len(popnames)
+    print(f"  Populations ({n_pops}): {', '.join(popnames)}")
+
+    print(f"  Loading SNP info from: {args.snpinfo}")
+    snpinfo = pd.read_csv(args.snpinfo, sep="\t", header=None,
+                          names=["chrom", "pos", "ref", "alt"])
+    n_sites = len(snpinfo)
+    print(f"  Sites in snpinfo: {n_sites:,}")
+
+    print(f"  Loading ref depths from: {args.ad1}")
+    ad1 = pd.read_csv(args.ad1, sep="\t", header=None)
+    print(f"  Loading alt depths from: {args.ad2}")
+    ad2 = pd.read_csv(args.ad2, sep="\t", header=None)
+
+    if ad1.shape != ad2.shape:
+        sys.exit(f"ERROR: ad1 shape {ad1.shape} != ad2 shape {ad2.shape}")
+    n_rows, n_cols = ad1.shape
+    if n_rows != n_sites:
+        sys.exit(f"ERROR: depth files have {n_rows} rows but snpinfo has {n_sites} rows")
+    if n_cols != n_pops:
+        sys.exit(f"ERROR: depth files have {n_cols} columns but {n_pops} population names provided")
+    print(f"  Dimensions OK: {n_sites:,} sites x {n_pops} populations")
+
+    ref_counts = ad1.values.astype(float)
+    alt_counts = ad2.values.astype(float)
+    total      = ref_counts + alt_counts
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        af = np.where(total > 0, alt_counts / total, np.nan)
+
+    print(f"  Sites with zero depth in at least one pop: {np.any(total == 0, axis=1).sum():,}")
+
+    extra = {}      ## building the otput table (af). loops over each pop and pulls out entire column (:,i). Will have 4 columns per pop (ref count, alt count, total depth, and AF)
+    for i, pop in enumerate(popnames):
+        extra[f"ref_{pop}"]   = ref_counts[:, i].astype(int)
+        extra[f"alt_{pop}"]   = alt_counts[:, i].astype(int)
+        extra[f"depth_{pop}"] = total[:, i].astype(int)
+        extra[f"af_{pop}"]    = np.round(af[:, i], 6)
+
+    out = pd.concat([snpinfo, pd.DataFrame(extra)], axis=1)       ## concats and writes to output table
+    out.to_csv(args.out, sep="\t", index=False)
+    print(f"  Written: {args.out}  ({len(out):,} sites)")
+
+    af_cols = [f"af_{p}" for p in popnames]
+    mean_af = out[af_cols].mean()
+    print("\n  Mean alt allele frequency per population:")
+    for pop, val in zip(popnames, mean_af):
+        print(f"    {pop:<15s}  {val:.4f}")
+
+if __name__ == "__main__":
+    main()
+
+##output: allele_freqs_all.txt
+## also have an af file for each chromosome 
 
 ```
 And it was ran with:
@@ -139,8 +214,167 @@ head -2 allele_freqs_all.txt | cut -f1-6
 ##lotis had 17 individuals and shc11 had 46
 ##Because lotis is smaller, we're going to project down to 34 (haploids)
 
+## To build the joint sfs use build_joint_sfs.py
 
 
+#!/usr/bin/env python3
+import argparse
+import sys
+import numpy as np
+import pandas as pd
+
+try:                ##instead of crasshing if a package fails, flags it. Installed both dadi and moments so that what will work
+    import moments
+    HAS_MOMENTS = True
+except ImportError:
+    HAS_MOMENTS = False
+
+try:
+    import dadi
+    HAS_DADI = True
+except ImportError:
+    HAS_DADI = False
+
+if not HAS_MOMENTS and not HAS_DADI:
+    sys.exit("ERROR: neither moments nor dadi is installed.")
+
+##kind of same thing as before, calling and identifying variables. type=int converts the command line to numeric
+##min_depth has default of 10 (like the filtering on lotis)
+##folding the sfs. ifyou don't specify true, it doesn't fold it and assumes false. 
+
+
+
+def parse_args():                            
+    p = argparse.ArgumentParser(description="Build 2D joint SFS from pool-seq AF table")    
+    p.add_argument("--freqs",     required=True)
+    p.add_argument("--pop1",      required=True)
+    p.add_argument("--pop2",      required=True)
+    p.add_argument("--n1",        required=True, type=int)
+    p.add_argument("--n2",        required=True, type=int)
+    p.add_argument("--out",       required=True)
+    p.add_argument("--min_depth", default=10, type=int)
+    p.add_argument("--fold",      action="store_true")
+    return p.parse_args()
+
+
+#building a 2d array of n (haploid sample sizes). Add +1 for value 0 (bin 0-34ish?)
+##using bins for the allele frequency because don't have the alt alleles directly. instead of forcing the site (which is variable) into one bin, binomial dist is spread across weighted bins by probability. 
+
+def build_2d_sfs_from_af(af1, af2, n1, n2):
+    from scipy.stats import binom
+    n_sites = len(af1)
+    fs = np.zeros((n1 + 1, n2 + 1), dtype=float)
+    k1 = np.arange(n1 + 1)
+    k2 = np.arange(n2 + 1)
+    print(f"  Projecting {n_sites:,} sites into {n1}x{n2} SFS...")
+
+##creates empty 2d array (the sfs grid). K1 and K2 are arrays of integers from 0->n representative of bins
+## binom.pmf for k, n, and af: identifies given allele frequency (af1) and sample size of n, and probabilty of seeing K derived alleles for each value of k. 
+## np.outer(p): calculates joint prob for every combo of counts in both pops. THIS is the 2d contribution for each specific site. sum those
+    for i in range(n_sites):
+        if i % 50000 == 0 and i > 0:
+            print(f"    ... {i:,} / {n_sites:,} sites done")
+        p1 = binom.pmf(k1, n1, af1[i])
+        p2 = binom.pmf(k2, n2, af2[i])
+        fs += np.outer(p1, p2)
+    return fs
+
+
+
+##df=pd.read: reads af table produced from calc_allele_freqs.py
+##then (keep) filters sites for both pops having finite alleles (NaN calculated in calc_af). So NaN sites where af is 0 for a pop: total depth (ref+alt) is 0. No reads mapped to those sites gets filtered out and described as NaN. 
+##also filtering on min depth (10). If depth is really low, af estimate will have noise so just getting rid of that. 
+
+
+def main():
+    args = parse_args()
+
+    print(f"\nLoading allele frequencies from: {args.freqs}")
+    df = pd.read_csv(args.freqs, sep="\t")
+    print(f"  {len(df):,} sites loaded")
+
+    for pop in [args.pop1, args.pop2]:
+        for prefix in ["af_", "depth_"]:
+            col = f"{prefix}{pop}"
+            if col not in df.columns:
+                sys.exit(f"ERROR: column '{col}' not found.\nAvailable columns: {list(df.columns)}")
+
+    af1    = df[f"af_{args.pop1}"].values
+    af2    = df[f"af_{args.pop2}"].values
+    depth1 = df[f"depth_{args.pop1}"].values
+    depth2 = df[f"depth_{args.pop2}"].values
+
+    keep = (
+        np.isfinite(af1) & np.isfinite(af2) &
+        (depth1 >= args.min_depth) &
+        (depth2 >= args.min_depth)
+    )
+    print(f"  Sites removed (NaN AF or depth < {args.min_depth}): {(~keep).sum():,}")
+    af1    = af1[keep]
+    af2    = af2[keep]
+    depth1 = depth1[keep]
+    depth2 = depth2[keep]
+    n_sites = keep.sum()
+    print(f"  Sites retained for SFS: {n_sites:,}")
+
+
+
+## depth warnings here. if projected pop size (34) is larger than median depth, binomial projection could be unreliable. Not a hard stop here, just a warning to note. 
+    if n_sites == 0:
+        sys.exit("ERROR: no sites passed filters.")
+
+    med_d1 = np.median(depth1)
+    med_d2 = np.median(depth2)
+    print(f"\n  Median depth {args.pop1}: {med_d1:.0f}  |  {args.pop2}: {med_d2:.0f}")
+    if args.n1 > med_d1:
+        print(f"  WARNING: --n1 ({args.n1}) > median depth for {args.pop1} ({med_d1:.0f}).")
+    if args.n2 > med_d2:
+        print(f"  WARNING: --n2 ({args.n2}) > median depth for {args.pop2} ({med_d2:.0f}).")
+
+    print(f"\nBuilding 2D SFS  ({args.pop1} n={args.n1})  x  ({args.pop2} n={args.n2})")
+    raw_fs = build_2d_sfs_from_af(af1, af2, args.n1, args.n2)
+
+## wrapping in a spectrum object. 
+##raw_fs is a numpy array, a grid of #'s. Need to label pop ids, folded or not, and whether moments or dadi i used. 
+##fs.s(): computes number of segregating sites from sfs
+##fs.mask: array that marks cells as excluded from analysis
+##masking the corners: getting rid of those spots in the array that have a value of 0 (top left) and bottom right, where lotis and sch alleles are fixed for the alt allele (so 34/34 and 92/92). Mask it so the values are not set to 0 and model is not off. 
+
+
+
+
+
+
+    pop_ids = [args.pop1, args.pop2]
+    if HAS_MOMENTS:
+        import moments
+        fs = moments.Spectrum(raw_fs, pop_ids=pop_ids)
+    else:
+        import dadi
+        fs = dadi.Spectrum(raw_fs, pop_ids=pop_ids)
+
+    fs.mask[0, 0] = True
+    fs.mask[-1, -1] = True
+
+    if args.fold:
+        fs = fs.fold()
+        print("  SFS folded.")
+
+    print(f"\n  SFS shape:             {fs.shape}")
+    print(f"  Folded:                {fs.folded}")
+    print(f"  Segregating sites (S): {fs.S():.1f}")
+    print(f"  Sum:                   {fs.sum():.1f}")
+
+    fs.to_file(args.out)
+    print(f"\n  Saved SFS -> {args.out}")
+
+    txt_out = args.out.replace(".fs", "_matrix.txt")
+    np.savetxt(txt_out, np.array(fs), fmt="%.4f", delimiter="\t")
+    print(f"  Saved matrix -> {txt_out}")
+    print("\nDone.")
+
+if __name__ == "__main__":
+    main()
 
 
 
