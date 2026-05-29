@@ -526,11 +526,184 @@ bottom bright: sch11 count =0.
 
 
 
+###############  Redoing it with 2 pops only and correct filtering ######################333
+##checked af frequency using allele_freq_all_check.txt. Was all the same, so using the origional _all file because column names are corrected here
+#!/usr/bin/env python3
+"""
+extract_two_pop.py
+==================
+Extract two focal populations from the full allele frequency table,
+apply depth filtering, and produce:
+  1. A filtered allele frequency file for the two populations
+  2. An allele count file (round(AF * 2n)) for the two populations
+
+Inputs
+------
+  --freqs     : full allele frequency table from calc_allele_freqs_.py
+  --pop1      : name of population 1 (e.g. Lyc-LOTIS)
+  --pop2      : name of population 2 (e.g. Lyc-SHC11)
+  --n1        : number of diploid individuals in pop1
+  --n2        : number of diploid individuals in pop2
+  --out_af    : output allele frequency file
+  --out_ac    : output allele count file
+  --min_depth : minimum depth per site per population (default: 10)
+
+Usage
+-----
+python3 extract_two_pop.py \
+    --freqs     allele_freqs_all.txt \
+    --pop1      Lyc-LOTIS \
+    --pop2      Lyc-SHC11 \
+    --n1        14 \
+    --n2        46 \
+    --out_af    allele_freqs_LOTIS_SHC11.txt \
+    --out_ac    allele_counts_LOTIS_SHC11.txt
+"""
+
+import argparse
+import sys
+import numpy as np
+import pandas as pd
 
 
+def parse_args():
+    p = argparse.ArgumentParser(description="Extract two populations and produce AF and count files")
+    p.add_argument("--freqs",     required=True,           help="Full allele frequency table")
+    p.add_argument("--pop1",      required=True,           help="Population 1 name")
+    p.add_argument("--pop2",      required=True,           help="Population 2 name")
+    p.add_argument("--n1",        required=True, type=int, help="Diploid individuals in pop1")
+    p.add_argument("--n2",        required=True, type=int, help="Diploid individuals in pop2")
+    p.add_argument("--out_af",    required=True,           help="Output allele frequency file")
+    p.add_argument("--out_ac",    required=True,           help="Output allele count file")
+    p.add_argument("--min_depth", default=10,   type=int,  help="Min depth per pop (default: 10)")
+    return p.parse_args()
 
 
+def main():
+    args = parse_args()
 
+    two_n1 = args.n1 * 2
+    two_n2 = args.n2 * 2
+    print(f"  {args.pop1}: {args.n1} diploid individuals -> 2n = {two_n1}")
+    print(f"  {args.pop2}: {args.n2} diploid individuals -> 2n = {two_n2}")
+
+    # ── Load allele frequency table ──────────────────────────────────────────
+    print(f"\n  Loading: {args.freqs}")
+    df = pd.read_csv(args.freqs, sep="\t")
+    print(f"  {len(df):,} sites loaded")
+
+    # Check required columns exist
+    for pop in [args.pop1, args.pop2]:
+        for prefix in ["ref_", "alt_", "depth_", "af_"]:
+            col = f"{prefix}{pop}"
+            if col not in df.columns:
+                sys.exit(f"ERROR: column '{col}' not found.\nAvailable: {list(df.columns)}")
+
+    # ── Extract relevant columns ─────────────────────────────────────────────
+    af1    = df[f"af_{args.pop1}"].values
+    af2    = df[f"af_{args.pop2}"].values
+    ref1   = df[f"ref_{args.pop1}"].values
+    alt1   = df[f"alt_{args.pop1}"].values
+    ref2   = df[f"ref_{args.pop2}"].values
+    alt2   = df[f"alt_{args.pop2}"].values
+    depth1 = df[f"depth_{args.pop1}"].values
+    depth2 = df[f"depth_{args.pop2}"].values
+
+    # ── Verify ref + alt == depth ────────────────────────────────────────────
+    mismatch1 = np.sum((ref1 + alt1) != depth1)
+    mismatch2 = np.sum((ref2 + alt2) != depth2)
+    if mismatch1 > 0:
+        print(f"  WARNING: {mismatch1:,} sites where ref+alt != depth for {args.pop1}")
+    if mismatch2 > 0:
+        print(f"  WARNING: {mismatch2:,} sites where ref+alt != depth for {args.pop2}")
+    if mismatch1 == 0 and mismatch2 == 0:
+        print(f"  Depth check OK: ref+alt == depth for all sites in both populations")
+
+    # ── Filter sites ─────────────────────────────────────────────────────────
+    keep = (
+        np.isfinite(af1) & np.isfinite(af2) &
+        (depth1 >= args.min_depth) &
+        (depth2 >= args.min_depth)
+    )
+    n_removed = (~keep).sum()
+    print(f"\n  Sites removed (NaN AF or depth < {args.min_depth}): {n_removed:,}")
+    print(f"  Sites retained: {keep.sum():,}")
+
+    # Apply filter
+    site_cols = df[["chrom", "pos", "ref", "alt"]][keep].reset_index(drop=True)
+    af1    = af1[keep]
+    af2    = af2[keep]
+    ref1   = ref1[keep]
+    alt1   = alt1[keep]
+    ref2   = ref2[keep]
+    alt2   = alt2[keep]
+    depth1 = depth1[keep]
+    depth2 = depth2[keep]
+
+    # ── Write allele frequency file ──────────────────────────────────────────
+    af_out = pd.DataFrame({
+        "chrom":               site_cols["chrom"],
+        "pos":                 site_cols["pos"],
+        "ref":                 site_cols["ref"],
+        "alt":                 site_cols["alt"],
+        f"ref_{args.pop1}":    ref1.astype(int),
+        f"alt_{args.pop1}":    alt1.astype(int),
+        f"depth_{args.pop1}":  depth1.astype(int),
+        f"af_{args.pop1}":     np.round(af1, 6),
+        f"ref_{args.pop2}":    ref2.astype(int),
+        f"alt_{args.pop2}":    alt2.astype(int),
+        f"depth_{args.pop2}":  depth2.astype(int),
+        f"af_{args.pop2}":     np.round(af2, 6),
+    })
+    af_out.to_csv(args.out_af, sep="\t", index=False)
+    print(f"\n  Written AF file:    {args.out_af}  ({len(af_out):,} sites)")
+
+    # ── Calculate and write allele count file ────────────────────────────────
+    count1 = np.clip(np.round(af1 * two_n1).astype(int), 0, two_n1)
+    count2 = np.clip(np.round(af2 * two_n2).astype(int), 0, two_n2)
+
+    ac_out = pd.DataFrame({
+        "chrom":               site_cols["chrom"],
+        "pos":                 site_cols["pos"],
+        "ref":                 site_cols["ref"],
+        "alt":                 site_cols["alt"],
+        f"count_{args.pop1}":  count1,
+        f"n_{args.pop1}":      two_n1,
+        f"count_{args.pop2}":  count2,
+        f"n_{args.pop2}":      two_n2,
+    })
+    ac_out.to_csv(args.out_ac, sep="\t", index=False)
+    print(f"  Written count file: {args.out_ac}  ({len(ac_out):,} sites)")
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    print(f"\n  Summary:")
+    print(f"    {args.pop1} mean AF: {af1.mean():.4f}  |  mean count: {count1.mean():.2f} / {two_n1}")
+    print(f"    {args.pop2} mean AF: {af2.mean():.4f}  |  mean count: {count2.mean():.2f} / {two_n2}")
+    print(f"    Sites fixed ref in both (0,0):           {((count1==0)      & (count2==0)).sum():,}")
+    print(f"    Sites fixed alt in both (2n,2n):         {((count1==two_n1) & (count2==two_n2)).sum():,}")
+    print(f"    Sites polymorphic in both:               {((count1>0) & (count1<two_n1) & (count2>0) & (count2<two_n2)).sum():,}")
+    print(f"    Sites polymorphic in {args.pop1} only:      {((count1>0) & (count1<two_n1) & ((count2==0)|(count2==two_n2))).sum():,}")
+    print(f"    Sites polymorphic in {args.pop2} only:     {((count2>0) & (count2<two_n2) & ((count1==0)|(count1==two_n1))).sum():,}")
+
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    main()
+##402,986 sites loaded
+Sites removed (NaN AF or depth < 10): 218
+Sites retained: 402,768
+Written AF file:    allele_freqs_LOTIS_SHC11.txt  (402,768 sites)
+Written count file: allele_counts_LOTIS_SHC11.txt  (402,768 sites)
+
+  Summary:
+    Lyc-LOTIS mean AF: 0.0521  |  mean count: 1.46 / 28
+    Lyc-SHC11 mean AF: 0.0544  |  mean count: 5.01 / 92
+    Sites fixed ref in both (0,0):           306,263
+    Sites fixed alt in both (2n,2n):         6,878
+    Sites polymorphic in both:               14,398
+    Sites polymorphic in Lyc-LOTIS only:      16,169
+    Sites polymorphic in Lyc-SHC11 only:     58,738
 
 
 
