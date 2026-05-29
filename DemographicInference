@@ -376,6 +376,10 @@ def main():
 if __name__ == "__main__":
     main()
 
+```
+outpust: 
+Lyc-LOTIS_Lyc-SHC11.fs- spectrum format for dadi/moments
+Lyc-LOTIS_Lyc-SHC11_matrix.txt- basically the same but can open it in R
 
 
 
