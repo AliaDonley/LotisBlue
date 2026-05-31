@@ -1,0 +1,121 @@
+python3 extract_two_pop.py \
+    --freqs     allele_freqs_all.txt \
+    --pop1      Lyc-YG20 \
+    --pop2      Lyc-SHC11 \
+    --n1        48 \
+    --n2        46 \
+    --out_af    allele_freqs_YG20_SHC11.txt \
+    --out_ac    allele_counts_YG20_SHC11.txt
+
+
+
+python3 build_joint_sfs.py \
+    --freqs  allele_freqs_YG20_SHC11.txt \
+    --pop1   Lyc-YG20 \
+    --pop2   Lyc-SHC11 \
+    --n1     96 \
+    --n2     92 \
+    --out    Lyc-YG20_Lyc-SHC11.fs
+
+python3 - << 'EOF'
+import moments
+
+fs = moments.Spectrum.from_file("Lyc-YG20_Lyc-SHC11.fs")
+print(f"Original shape: {fs.shape}")
+print(f"Original S: {fs.S():.1f}")
+
+fs_proj = fs.project([40, 40])
+print(f"Projected shape: {fs_proj.shape}")
+print(f"Projected S: {fs_proj.S():.1f}")
+
+fs_proj.to_file("Lyc-YG20_Lyc-SHC11_n40_n40.fs")
+print("Saved -> Lyc-YG20_Lyc-SHC11_n40_n40.fs")
+EOF
+
+python3 plot_joint_sfs.py \
+    --fs    Lyc-YG20_Lyc-SHC11_n40_n40.fs \
+    --pop1  Lyc-YG20 \
+    --pop2  Lyc-SHC11 \
+    --out   Lyc-YG20_Lyc-SHC11_n40_n40_sfs.pdf
+
+TO FOLD:
+
+python3 - << 'EOF'
+import moments
+
+fs = moments.Spectrum.from_file("Lyc-YG20_Lyc-SHC11_n40_n40.fs")
+print(f"Original folded: {fs.folded}")
+
+fs_folded = fs.fold()
+print(f"Folded: {fs_folded.folded}")
+print(f"S: {fs_folded.S():.1f}")
+
+fs_folded.to_file("Lyc-YG20_Lyc-SHC11_n40_n40_folded.fs")
+print("Saved -> Lyc-YG20_Lyc-SHC11_n40_n40_folded.fs")
+EOF
+
+
+python3 plot_joint_sfs.py \
+    --fs    Lyc-YG20_Lyc-SHC11_n40_n40_folded.fs \
+    --pop1  Lyc-YG20 \
+    --pop2  Lyc-SHC11 \
+    --out   Lyc-YG20_Lyc-SHC11_n40_n40_folded_sfs.pdf
+
+TO FIND THE CORRELATION
+python3 - << 'EOF'
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv("allele_freqs_YG20_SHC11.txt", sep="\t")
+
+af_yg  = df["af_Lyc-YG20"].values
+af_shc = df["af_Lyc-SHC11"].values
+
+# Remove sites where either is NaN
+keep = np.isfinite(af_yg) & np.isfinite(af_shc)
+af_yg  = af_yg[keep]
+af_shc = af_shc[keep]
+
+corr = np.corrcoef(af_yg, af_shc)[0, 1]
+print(f"Sites used: {keep.sum():,}")
+print(f"Pearson correlation: {corr:.4f}")
+EOF
+
+
+AND PLOT IT
+python3 - << 'EOF'
+import pandas as pd
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("allele_freqs_YG20_SHC11.txt", sep="\t")
+
+af_yg  = df["af_Lyc-YG20"].values
+af_shc = df["af_Lyc-SHC11"].values
+
+keep = np.isfinite(af_yg) & np.isfinite(af_shc)
+af_yg  = af_yg[keep]
+af_shc = af_shc[keep]
+
+corr = np.corrcoef(af_yg, af_shc)[0, 1]
+
+fig, ax = plt.subplots(figsize=(7, 6))
+
+# Hexbin plot — better than scatter for 400k points
+hb = ax.hexbin(af_yg, af_shc, gridsize=80, cmap="viridis", mincnt=1, bins="log")
+plt.colorbar(hb, ax=ax, label="log10(site count)")
+
+ax.set_xlabel("Lyc-YG20 allele frequency", fontsize=12)
+ax.set_ylabel("Lyc-SHC11 allele frequency", fontsize=12)
+ax.set_title(f"Allele frequency correlation\nr = {corr:.4f}  |  n = {keep.sum():,} sites", fontsize=12)
+
+# 1:1 line
+ax.plot([0, 1], [0, 1], "r--", linewidth=1, label="1:1 line")
+ax.legend()
+
+plt.tight_layout()
+plt.savefig("AF_correlation_YG20_SHC11.pdf", dpi=150, bbox_inches="tight")
+print("Saved -> AF_correlation_YG20_SHC11.pdf")
+EOF
