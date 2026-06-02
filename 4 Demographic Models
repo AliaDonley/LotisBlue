@@ -1,6 +1,6 @@
 ## tried to run ts as a batch job, failed everytime because numpy wasnt compatable. 
 
-python3 demographic_models.py \
+python3 demographic_models_2.py \
     --fs     Lyc-YG20_Lyc-SHC11_n80_n80_folded_sfs.fs \
     --pop1   Lyc-YG20 \
     --pop2   Lyc-SHC11 \
