@@ -1,0 +1,234 @@
+## tried to run ts as a batch job, failed everytime because numpy wasnt compatable. 
+
+python3 demographic_models.py \
+    --fs     Lyc-YG20_Lyc-SHC11_n80_n80_folded_sfs.fs \
+    --pop1   Lyc-YG20 \
+    --pop2   Lyc-SHC11 \
+    --out    demographic_results_YG20_SHC11.txt \
+    --nruns  20
+
+
+
+
+#!/usr/bin/env python3
+"""
+demographic_models.py
+=====================
+Fit four demographic models to a 2D folded joint SFS using moments:
+  1. Strict Isolation (SI)
+  2. Isolation with Migration (IM)
+  3. Ancestral Migration (AM)
+  4. Secondary Contact (SC)
+
+Usage
+-----
+  python demographic_models.py \
+      --fs      Lyc-YG20_Lyc-SHC11_n80_n80_folded.fs \
+      --pop1    Lyc-YG20 \
+      --pop2    Lyc-SHC11 \
+      --out     demographic_results_YG20_SHC11.txt \
+      --nruns   20
+"""
+
+import argparse
+import sys
+import numpy as np
+import pandas as pd
+import moments
+import warnings
+warnings.filterwarnings("ignore")
+
+
+# ── Helper: build starting 2D spectrum ───────────────────────────────────────
+
+def make_fs(ns):
+    """Build equilibrium 1D spectrum and split into 2D."""
+    sts = moments.LinearSystem_1D.steady_state_1D(ns[0] + ns[1])
+    fs  = moments.Spectrum(sts)
+    fs  = moments.Manips.split_1D_to_2D(fs, ns[0], ns[1])
+    return fs
+
+
+# ── Model definitions ─────────────────────────────────────────────────────────
+
+def model_SI(params, ns, pts=None):
+    """Strict Isolation: split, no migration. params: (nu1, nu2, T)"""
+    nu1, nu2, T = params
+    fs = make_fs(ns)
+    fs.integrate([nu1, nu2], T, m=np.zeros((2, 2)))
+    return fs
+
+
+def model_IM(params, ns, pts=None):
+    """Isolation with Migration: split with continuous migration. params: (nu1, nu2, T, m12, m21)"""
+    nu1, nu2, T, m12, m21 = params
+    fs = make_fs(ns)
+    m  = np.array([[0, m12], [m21, 0]])
+    fs.integrate([nu1, nu2], T, m=m)
+    return fs
+
+
+def model_AM(params, ns, pts=None):
+    """Ancestral Migration: early migration then isolation. params: (nu1, nu2, T, m12, m21, Tam)"""
+    nu1, nu2, T, m12, m21, Tam = params
+    Tiso = max(T - Tam, 1e-9)
+    fs   = make_fs(ns)
+    m    = np.array([[0, m12], [m21, 0]])
+    fs.integrate([nu1, nu2], Tam, m=m)
+    fs.integrate([nu1, nu2], Tiso, m=np.zeros((2, 2)))
+    return fs
+
+
+def model_SC(params, ns, pts=None):
+    """Secondary Contact: isolation then migration. params: (nu1, nu2, T, m12, m21, Tsc)"""
+    nu1, nu2, T, m12, m21, Tsc = params
+    Tiso = max(T - Tsc, 1e-9)
+    fs   = make_fs(ns)
+    fs.integrate([nu1, nu2], Tiso, m=np.zeros((2, 2)))
+    m = np.array([[0, m12], [m21, 0]])
+    fs.integrate([nu1, nu2], Tsc, m=m)
+    return fs
+
+
+# ── Parameter definitions ─────────────────────────────────────────────────────
+
+MODELS = {
+    "SI": {
+        "func":        model_SI,
+        "param_names": ["nu1", "nu2", "T"],
+        "lower":       [1e-3, 1e-3, 1e-3],
+        "upper":       [20,   20,   10],
+        "p0":          [1.0,  1.0,  0.5],
+    },
+    "IM": {
+        "func":        model_IM,
+        "param_names": ["nu1", "nu2", "T", "m12", "m21"],
+        "lower":       [1e-3, 1e-3, 1e-3, 0,    0],
+        "upper":       [20,   20,   10,   20,   20],
+        "p0":          [1.0,  1.0,  0.5,  1.0,  1.0],
+    },
+    "AM": {
+        "func":        model_AM,
+        "param_names": ["nu1", "nu2", "T", "m12", "m21", "Tam"],
+        "lower":       [1e-3, 1e-3, 1e-3, 0,    0,    1e-3],
+        "upper":       [20,   20,   10,   20,   20,   10],
+        "p0":          [1.0,  1.0,  1.0,  1.0,  1.0,  0.5],
+    },
+    "SC": {
+        "func":        model_SC,
+        "param_names": ["nu1", "nu2", "T", "m12", "m21", "Tsc"],
+        "lower":       [1e-3, 1e-3, 1e-3, 0,    0,    1e-3],
+        "upper":       [20,   20,   10,   20,   20,   10],
+        "p0":          [1.0,  1.0,  1.0,  1.0,  1.0,  0.5],
+    },
+}
+
+
+# ── Optimization ──────────────────────────────────────────────────────────────
+
+def optimize_model(model_name, fs_data, nruns=20):
+    model   = MODELS[model_name]
+    func    = model["func"]
+    pnames  = model["param_names"]
+    lower   = model["lower"]
+    upper   = model["upper"]
+    p0      = model["p0"]
+    ns      = fs_data.sample_sizes
+    results = []
+
+    print(f"\n  Fitting {model_name} model ({len(pnames)} params, {nruns} runs)...")
+
+    for run in range(1, nruns + 1):
+        p_start = moments.Misc.perturb_params(
+            p0, fold=2, lower_bound=lower, upper_bound=upper
+        )
+        try:
+            p_opt = moments.Inference.optimize_log(
+                p_start, fs_data, func,
+                lower_bound=lower,
+                upper_bound=upper,
+                verbose=0,
+                maxiter=200,
+            )
+            fs_model = func(p_opt, ns)
+            ll       = moments.Inference.ll_multinom(fs_model, fs_data)
+            theta    = moments.Inference.optimal_sfs_scaling(fs_model, fs_data)
+            aic      = -2 * ll + 2 * len(pnames)
+
+            result = {"model": model_name, "run": run,
+                      "ll": round(ll, 4), "aic": round(aic, 4),
+                      "theta": round(theta, 4)}
+            for name, val in zip(pnames, p_opt):
+                result[name] = round(val, 6)
+            results.append(result)
+            print(f"    Run {run:2d}: ll = {ll:.2f}  AIC = {aic:.2f}  theta = {theta:.1f}")
+
+        except Exception as e:
+            print(f"    Run {run:2d}: FAILED ({e})")
+            result = {"model": model_name, "run": run,
+                      "ll": np.nan, "aic": np.nan, "theta": np.nan}
+            for name in pnames:
+                result[name] = np.nan
+            results.append(result)
+
+    return results
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Fit demographic models to 2D SFS")
+    p.add_argument("--fs",     required=True,         help="Input .fs file (folded)")
+    p.add_argument("--pop1",   required=True,         help="Population 1 name")
+    p.add_argument("--pop2",   required=True,         help="Population 2 name")
+    p.add_argument("--out",    required=True,         help="Output results table")
+    p.add_argument("--nruns",  default=20, type=int,  help="Optimization runs per model (default: 20)")
+    p.add_argument("--models", default="SI,IM,AM,SC", help="Models to fit (default: SI,IM,AM,SC)")
+    return p.parse_args()
+
+
+def main():
+    args   = parse_args()
+    models = args.models.split(",")
+
+    print(f"\nLoading SFS from: {args.fs}")
+    fs = moments.Spectrum.from_file(args.fs)
+    print(f"  Shape:  {fs.shape}")
+    print(f"  Folded: {fs.folded}")
+    print(f"  S:      {fs.S():.1f}")
+
+    if not fs.folded:
+        print("  WARNING: SFS is not folded. Consider using a folded .fs file.")
+
+    all_results = []
+    for model_name in models:
+        if model_name not in MODELS:
+            print(f"  WARNING: unknown model '{model_name}', skipping.")
+            continue
+        results = optimize_model(model_name, fs, nruns=args.nruns)
+        all_results.extend(results)
+
+    df = pd.DataFrame(all_results)
+    all_param_cols = ["nu1", "nu2", "T", "m12", "m21", "Tam", "Tsc"]
+    present_params = [c for c in all_param_cols if c in df.columns]
+    col_order      = ["model", "run", "ll", "aic", "theta"] + present_params
+    df = df.reindex(columns=col_order)
+    df.to_csv(args.out, sep="\t", index=False)
+    print(f"\n  Results saved -> {args.out}")
+
+    print("\n  Best run per model (highest log-likelihood):")
+    print(f"  {'Model':<6}  {'Best LL':>12}  {'AIC':>12}  {'theta':>10}")
+    print(f"  {'-'*6}  {'-'*12}  {'-'*12}  {'-'*10}")
+    for model_name in models:
+        subset = df[df["model"] == model_name].dropna(subset=["ll"])
+        if len(subset) == 0:
+            print(f"  {model_name:<6}  all runs failed")
+            continue
+        best = subset.loc[subset["ll"].idxmax()]
+        print(f"  {model_name:<6}  {best['ll']:>12.2f}  {best['aic']:>12.2f}  {best['theta']:>10.1f}")
+
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    main()
