@@ -4225,8 +4225,123 @@ foreach $i (1..23){
 
 
 
+# Using Treemix
+make the input files for treemix, using mkTreeMixin.R
+
+```R
+## make input for treemix
+library(data.table)
+
+a1f <- list.files(pattern="ad1_fff_o_lycpool_chrom[0-9]+_noBAT49_noTBY51_filtered")
+a2f <- gsub("ad1", "ad2", a1f)
+asnp <- gsub("ad1", "snpinfo", a1f)
+
+N <- length(a1f)
+
+ids <- read.table("sample_names_clean.txt", header=FALSE)
+idx <- sub(pattern="^[0-9]+\t", replacement="", x=ids[,1])
+idx <- sub(pattern="Lyc-", replacement="", x=idx)
+
+temp <- gsub("ad1_fff_o_lycpool_chrom", "", a1f)
+chrom <- gsub("_noBAT49_noTBY51_filtered.txt", "", temp)
+
+reps <- grep(pattern="rep", x=idx)
+
+for(i in 1:N){
+    cat(i, "\n")
+    a1 <- as.matrix(fread(a1f[i], header=FALSE))
+    a2 <- as.matrix(fread(a2f[i], header=FALSE))
+    L <- dim(a1)[1]
+    J <- dim(a1)[2]
+    combPa <- paste(a1, a2, sep=",")
+    PaMat <- matrix(combPa, nrow=L, ncol=J, byrow=FALSE)
+    colnames(PaMat) <- idx
+    if(length(reps) > 0){
+        write.table(file=paste("treemix_in_ch", chrom[i], ".txt", sep=""),
+                    PaMat[,-reps], quote=FALSE, row.names=FALSE)
+    } else {
+        write.table(file=paste("treemix_in_ch", chrom[i], ".txt", sep=""),
+                    PaMat, quote=FALSE, row.names=FALSE)
+    }
+}
+```
+output: treemix_in_ch*.txt
+Ran treemix for 0 to xx migration (admixture) events on the noTBYandBAT dataset for all 23 chroms
+
+Zip the files before running: gzip treemix_in_ch*.txt
+Used: run_max_treemix.pl
+```pl
+#!/usr/bin/perl
+#
+## version of treemix fork script that obtains the ML result across $N runs
 
 
+use Parallel::ForkManager;
+my $max = 48;
+my $pm = Parallel::ForkManager->new($max);
+
+$N = 20;
+
+foreach $fi (@ARGV){
+	$fi =~ m/(\d+)/ or die "failed here $fi\n";
+	$ch = $1;
+	foreach $m (0..8){
+		$pm->start and next;
+		$out = "tro_ch$ch"."_m$m";
+		system "treemix -i $fi -o $out -k 100 -m $m -root MEN12\n";
+		open(IN, "$out\.llik");
+		$a = <IN>;
+		$a = <IN>;
+		chomp($a);
+		$a =~ m/:\s+(\-[0-9\.]+)/ or die "can't find the ll: $a\n";
+		$ll = $1;
+		close(IN);
+		print "starting ll = $ll\n";
+		foreach $i (1..$N){
+			$tout = "temp_tro_ch$ch"."_m$m";
+			system "treemix -i $fi -o $tout -k 100 -m $m -root MEN12\n";
+			open(IN, "$tout\.llik");
+			$a = <IN>;
+			$a = <IN>;
+			chomp($a);
+			$a =~ m/:\s+(\-[0-9\.]+)/ or die "can't find the ll: $a\n";
+			$llt = $1;
+			if($llt > $ll){
+				$ll = $llt;
+				system "mv $tout\.treeout.gz $out\.treeout.gz\n";
+				system "mv $tout\.modelcov.gz $out\.modelcov.gz\n";
+				system "mv $tout\.vertices.gz $out\.vertices.gz\n";
+				system "mv $tout\.cov.gz $out\.cov.gz\n";
+				system "mv $tout\.covse.gz $out\.covse.gz\n";
+				system "mv $tout\.edges.gz $out\.edges.gz\n";
+				system "mv $tout\.llik $out\.llik\n";
+			}
+		}
+		$pm->finish;
+	}
+}
+
+$pm->wait_all_children;
+```
+
+Make 
+Submitted with Sub_Treemix.sh
+
+```sh
+#!/bin/bash
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=48
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=tmix
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+cd /uufs/chpc.utah.edu/common/home/gompert-group6/data/LycLotis/ZLycLotis/filtered_GACT
+
+perl run_max_treemix.pl treemix_in_ch*.txt.gz
+```
 
 
 
