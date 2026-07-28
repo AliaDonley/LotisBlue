@@ -1,0 +1,33 @@
+7/28/26
+
+##Have allele depth files for all chromosomes. Trying with LS19 and YG20 (sample names 14 and 25). 
+minimum depth of 20, max of 500. project down to 2N (40) for sample size, the true number of individuals shared between pops
+
+First tried making my own sfs to feed into dadi, but I'm an idiot. 
+Second time around, this go:
+In regular dadi/moments workflows, so not pool seq, each site fives a genotype call for each N diploid individual. So allele count at that site is k out of 2N chroms observed. SFS is a histogram 
+of those counts. We project down to a smaller fixed sample size to account for missing genotypes at some sites so all sites are comparable.  
+
+Pool seq breaks this convention because we don't have individual genotypes. Instead we have read counts (ad1, ad2) from a pool, but the reads aren't chroms (because it's a pool). 
+Extra layer of sampling with this method: sequencing reads WITH REPLACEMENT, from the true AF in the pool. Pool itself is a fixed, finite set of 2N chroms. So one one random fragment of DNA could be read
+over and over again (because there are many copies in the pool). So even if the true pool frequency is a fixed 20/96, you could still get a random 1, 3, or 0 alt read for any given site. 
+
+Allele depth vs Allele Frequency 
+
+AF: single point estimate per site. For example: ad2/(ad1+ad2). This gets rid of information about how much read support the estimate had, or its statistical confidence. This only gives us a point 
+estimate. 
+
+AD: retains raw counts and sampling variance. Allows hypergeometric projection. Basically asking: if a drew a smaller ssamplle of chroms from a specific site, what would the distribution of allele
+counts look like given what I actually observed? To do so, the projection math needs the size of the pool I'm sampling from, not number of reads I'm sequencing. 
+
+what I'm actually doing:
+plugging ad1 and ad2 into the dd dictionary because they give me the per site (n_obs and k_obs) par that hypergeometric projection needs. Projection then downsamples each site from its own n_obs to
+chosen target sample size (2N is sthe upper bound point). Projection only goes down so the target contains every depth at every retained site (this is what build_joint_sfs_LS19_YG20_v2.py does) run with:
+SubPythonSFS.sh. 
+
+Took a look at the sfs before running through the 4 models with check_sfs_LS_yg.py. Submitted with SubPythonCheck.sh
+
+Tried running 4 models with demograpic_models_2.py. Submitted with SubPython.sh
+all runs failed
+
+
