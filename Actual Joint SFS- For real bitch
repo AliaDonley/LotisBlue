@@ -1,0 +1,17 @@
+Rachel and I worked together- Rachel for real used her big brain, mine is tiny and hard. 
+
+The origional steps went like this: already have the site/depth input files (the ad files and snp files)
+fs_file_setup.R builds the dadi input files for each of the chromosomes (I assume this is the pariwise filtering now but need to look)
+clean up the sample names
+moments_build_sfs.py (yours is pairwise now i believe but i need to look) builds the sfs
+momens_call_sfs.sh calls ^^
+
+All of these can be found in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+
+
+
+
+
+
+
+
