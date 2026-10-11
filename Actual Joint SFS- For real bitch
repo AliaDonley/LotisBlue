@@ -12,7 +12,26 @@ All of these can be found in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/
 change depth of lotis to 10, saw reality of it in R with Rachel. Maybe could get away with 15, but that would be pushing it. 
 
 
+Was not using the correct version of the filtered data. I was using a strict filtered set, going to try on less filtered set
 
+path is: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+
+Step 1: run build_joint_sfs_v3.py with SubPythonSFS.sh
+Ran with sample_names.txt which did not have tby or bat, but the numbers for all of the other pops were the same. The entire
+.txt file with all site names is one direcotry back: ZLycLotis
+
+##this will build the joint sfs with chosen pops. I chose YG and LS for this run
+
+Check that the v3 sfs exists. Will be called Lyc-LS19_Lyc-YG20_n80_n80_vs.fs. 
+
+Step 2: Edit check_sfs_LS19_YG20.py so it reads as _v3. Check that it writes a new plot name so as to not overwrite the past ones. 
+
+Make all other files: Optimize_Functions.py, and models _2d.py, submit dadi 2d, and run 2d set ls and yg
+
+Check that dadi imports: Run /uufs/chpc.utah.edu/common/home/u6047808/miniconda3/bin/python3 -c "import dadi; print(dadi.__version__)".
+
+submit the .sh: submit_dadi_2d_pops.sh. Make sure it is origionally set for test mode, 3 reps and 2 iterations per round w/ 6 hour limit
+look at top of the .out file to check the numpy, scipy and dadi versins print 
 
 
 
