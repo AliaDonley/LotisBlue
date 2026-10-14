@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><beast beautitemplate='Standard' beautistatus='' namespace="beast.core:beast.evolution.alignment:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.base.evolution.alignment:beast.pkgmgmt:beast.base.core:beast.base.inference:beast.base.evolution.tree.coalescent:beast.pkgmgmt:beast.base.core:beast.base.inference.util:beast.evolution.nuc:beast.base.evolution.operator:beast.base.inference.operator:beast.base.evolution.sitemodel:beast.base.evolution.substitutionmodel:beast.base.evolution.likelihood" required="CoupledMCMC v1.2.2:BEAST.base v2.7.8" version="2.7">
+
+    <data
+id="lyc_genomemax_noBAT49_noTBY51"
+spec="Alignment"
+name="alignment">
+
+      sequence stuff
+
+</data>
+
+	<data id='lyc_genomemax_no49_no51' spec='FilteredAlignment' filter='-' data='@lyc_genomemax_noBAT49_noTBY51' constantSiteWeights='50190 28322 28284 50114'>
+    </data>
+
+    <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
+
+    <map name="Exponential" >beast.base.inference.distribution.Exponential</map>
+
+    <map name="LogNormal" >beast.base.inference.distribution.LogNormalDistributionModel</map>
+
+    <map name="Normal" >beast.base.inference.distribution.Normal</map>
+
+    <map name="Beta" >beast.base.inference.distribution.Beta</map>
+
+    <map name="Gamma" >beast.base.inference.distribution.Gamma</map>
+
+    <map name="LaplaceDistribution" >beast.base.inference.distribution.LaplaceDistribution</map>
+
+    <map name="prior" >beast.base.inference.distribution.Prior</map>
+
+    <map name="InverseGamma" >beast.base.inference.distribution.InverseGamma</map>
+
+    <map name="OneOnX" >beast.base.inference.distribution.OneOnX</map>
+
+    <run id="mcmcmc" spec="coupledMCMC.CoupledMCMC" chainLength="500000000" chains="5" deltaTemperature="0.025" numInitializationAttempts="400" preBurnin="800" resampleEvery="1000" storeEvery="25000">
+        <state id="state" spec="State" storeEvery="25000">
+            <tree id="Tree.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.tree.Tree" name="stateNode">
+                <taxonset id="TaxonSet.lyc_genomemax_noBAT49_noTBY51" spec="TaxonSet">
+                    <alignment idref="lyc_genomemax_noBAT49_noTBY51"/>
+                </taxonset>
+            </tree>
+            <parameter id="birthRate.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="gammaShape.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.1" name="stateNode">1.0</parameter>
+            <stateNode id="Indicators.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.BooleanParameter" dimension="48">false</stateNode>
+            <parameter id="clockrates.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" dimension="48" lower="1.0E-9" name="stateNode">1.0</parameter>
+            <parameter id="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.0029</parameter>
+        </state>
+        <init id="RandomTree.t:lyc_genomemax_noBAT49_noTBY51" spec="RandomTree" estimate="false" initial="@Tree.t:lyc_genomemax_noBAT49_noTBY51" taxa="@lyc_genomemax_noBAT49_noTBY51">
+            <populationModel id="ConstantPopulation0.t:lyc_genomemax_noBAT49_noTBY51" spec="ConstantPopulation">
+                <parameter id="randomPopSize.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" name="popSize">1.0</parameter>
+            </populationModel>
+        </init>
+        <distribution id="posterior" spec="CompoundDistribution">
+            <distribution id="prior" spec="CompoundDistribution">
+                <distribution id="YuleModel.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.speciation.YuleModel" birthDiffRate="@birthRate.t:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+                <prior id="RRateChangesPrior.c:lyc_genomemax_noBAT49_noTBY51" name="distribution">
+                    <x id="RRateChanges.c:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.Sum">
+                        <arg idref="Indicators.c:lyc_genomemax_noBAT49_noTBY51"/>
+                    </x>
+                    <distr id="Poisson.0" spec="distribution.Poisson">
+                        <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" name="lambda">0.6931471805599453</parameter>
+                    </distr>
+                </prior>
+                <prior id="YuleBirthRatePrior.t:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@birthRate.t:lyc_genomemax_noBAT49_noTBY51">
+                    <Uniform id="Uniform.1" name="distr" upper="Infinity"/>
+                </prior>
+                <prior id="RRatesPrior.c:slyc_genomemax_noBAT49_noTBY51" name="distribution" x="@clockrates.c:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.0" name="distr">
+                        <parameter id="RealParameter.3" spec="parameter.RealParameter" estimate="false" name="alpha">0.5</parameter>
+                        <parameter id="RealParameter.4" spec="parameter.RealParameter" estimate="false" name="beta">2.0</parameter>
+                    </Gamma>
+                </prior>
+                <prior id="GammaShapePrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Exponential id="Exponential.0" name="distr">
+                        <parameter id="RealParameter.0" spec="parameter.RealParameter" estimate="false" name="mean">1.0</parameter>
+                    </Exponential>
+                </prior>
+                <distribution id="TMRCAall.prior" spec="beast.base.evolution.tree.MRCAPrior" monophyletic="true" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
+                    <taxonset id="TMRCAall" spec="TaxonSet">
+                        <taxon id="ABM20" spec="Taxon"/>
+                        <taxon id="BAT20" spec="Taxon"/>
+                        <taxon id="BCR17" spec="Taxon"/>
+                        <taxon id="BHP19" spec="Taxon"/>
+                        <taxon id="BKM19" spec="Taxon"/>
+                        <taxon id="BTB17" spec="Taxon"/>
+                        <taxon id="CLH19" spec="Taxon"/>
+                        <taxon id="CP19" spec="Taxon"/>
+                        <taxon id="EP19" spec="Taxon"/>
+                        <taxon id="GNP17" spec="Taxon"/>
+                        <taxon id="HJ20" spec="Taxon"/>
+                        <taxon id="HNV17" spec="Taxon"/>
+                        <taxon id="LOTIS" spec="Taxon"/>
+                        <taxon id="LS19" spec="Taxon"/>
+                        <taxon id="MEN12" spec="Taxon"/>
+			<taxon id="MR20" spec="Taxon"/>
+                        <taxon id="MTU20" spec="Taxon"/>
+                        <taxon id="SBW18" spec="Taxon"/>
+                        <taxon id="SHC11" spec="Taxon"/>
+                        <taxon id="SIN10" spec="Taxon"/>
+                        <taxon id="SUV20" spec="Taxon"/>
+                        <taxon id="TBY11" spec="Taxon"/>
+                        <taxon id="TIC19" spec="Taxon"/>
+                        <taxon id="VE20" spec="Taxon"/>
+                        <taxon id="YG20" spec="Taxon"/>
+                    </taxonset>
+                    <Normal id="Normal.1" name="distr">
+                        <parameter id="RealParameter.8" spec="parameter.RealParameter" estimate="false" name="mean">2.125</parameter>
+                        <parameter id="RealParameter.9" spec="parameter.RealParameter" estimate="false" name="sigma">0.167</parameter>
+                    </Normal>
+                </distribution>
+                <distribution id="TMRCALyc.prior" spec="beast.base.evolution.tree.MRCAPrior" monophyletic="true" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
+                    <taxonset id="TMRCALyc" spec="TaxonSet">
+                        <taxon idref="ABM20"/>
+                        <taxon idref="BAT20"/>
+                        <taxon idref="BCR17"/>
+                        <taxon idref="BHP19"/>
+                        <taxon idref="BKM19"/>
+                        <taxon idref="BTB17"/>
+                        <taxon idref="CLH19"/>
+                        <taxon idref="CP19"/>
+                        <taxon idref="EP19"/>
+                        <taxon idref="GNP17"/>
+                        <taxon idref="HJ20"/>
+                        <taxon idref="HNV17"/>
+                        <taxon idref="LOTIS"/>
+                        <taxon idref="LS19"/>
+                        <taxon idref="MR20"/>
+                        <taxon idref="MTU20"/>
+                        <taxon idref="SBW18"/>
+                        <taxon idref="SHC11"/>
+                        <taxon idref="SIN10"/>
+                        <taxon idref="SUV20"/>
+                        <taxon idref="TBY11"/>
+                        <taxon idref="TIC19"/>
+                        <taxon idref="VE20"/>
+                        <taxon idref="YG20"/>
+                    </taxonset>
+                    <Normal id="Normal.0" name="distr">
+                        <parameter id="RealParameter.6" spec="parameter.RealParameter" estimate="false" name="mean">1.29</parameter>
+                        <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="sigma">0.167</parameter>
+                    </Normal>
+                </distribution>
+            </distribution>
+            <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
+                <distribution id="treeLikelihood.lyc_genomemax_noBAT49_noTBY51" spec="ThreadedTreeLikelihood" data="@lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
+                    <siteModel id="SiteModel.s:lyc_genomemax_noBAT49_noTBY51" spec="SiteModel" gammaCategoryCount="4" shape="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51">
+                        <parameter id="mutationRate.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" estimate="false" lower="0.0" name="mutationRate">1.0</parameter>
+                        <parameter id="proportionInvariant.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
+                        <substModel id="JC69.s:lyc_genomemax_noBAT49_noTBY51" spec="JukesCantor"/>
+                    </siteModel>
+                    <branchRateModel id="RandomLocalClock.c:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.branchratemodel.RandomLocalClockModel" clock.rate="@meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" indicators="@Indicators.c:lyc_genomemax_noBAT49_noTBY51" rates="@clockrates.c:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+                </distribution>
+            </distribution>
+        </distribution>
+        <operator id="gammaShapeScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="AVMNOperator.lyc_genomemax_noBAT49_noTBY51" spec="kernel.AdaptableVarianceMultivariateNormalOperator" allowNonsense="true" beta="0.05" burnin="400" initial="800" weight="0.1">
+                <transformations id="AVMNSumTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$LogConstrainedSumTransform"/>
+                <transformations id="AVMNLogTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$LogTransform">
+                    <f idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+                    <f idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
+                </transformations>
+                <transformations id="AVMNNoTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$NoTransform">
+                    <f idref="Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+                </transformations>
+            </operator>
+            <operator id="gammaShapeScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+        <operator id="YuleBirthRateScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@birthRate.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="3.0"/>
+        <operator id="YuleModelTreeRootScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" rootOnly="true" scaleFactor="0.5" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="3.0"/>
+        <operator id="YuleModelUniformOperator.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianNodeOperator" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="30.0"/>
+        <operator id="YuleModelSubtreeSlide.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianSubtreeSlide" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="YuleModelNarrow.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="YuleModelWide.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" isNarrow="false" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
+        <operator id="YuleModelWilsonBalding.t:lyc_genomemax_noBAT49_noTBY51" spec="WilsonBalding" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
+        <operator id="YuleModelBICEPSEpochTop.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="YuleModelBICEPSEpochAll.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" fromOldestTipOnly="false" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="YuleModelBICEPSTreeFlex.t:lyc_genomemax_noBAT49_noTBY51" spec="TreeStretchOperator" scaleFactor="0.01" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="randomClockScaler.c:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.1" upper="10.0" weight="1.0"/>
+        <operator id="randomClockUpDownOperator.c:lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.BactrianUpDownOperator" scaleFactor="0.1" weight="3.0">
+            <up idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
+            <down idref="Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+        </operator>
+        <operator id="IndicatorsBitFlip.c:lyc_genomemax_noBAT49_noTBY51" spec="operator.BitFlipOperator" parameter="@Indicators.c:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="ClockRateScaler.c:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@clockrates.c:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.1" upper="10.0" weight="15.0"/>
+        <logger id="tracelog" spec="Logger" fileName="$(filebase).log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+            <log idref="treeLikelihood.lyc_genomemax_noBAT49_noTBY51"/>
+            <log id="TreeHeight.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.tree.TreeStatLogger" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="YuleModel.t:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="birthRate.t:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="Indicators.c:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="clockrates.c:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="RRateChanges.c:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="TMRCAall.prior.prior"/>
+            <log idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="TMRCALyc.prior.prior"/>
+        </logger>
+        <logger id="screenlog" spec="Logger" logEvery="1000">
+            <log idref="posterior"/>
+            <log idref="likelihood"/>
+            <log idref="prior"/>
+        </logger>
+        <logger id="treelog.t:lyc_genomemax_noBAT49_noTBY51" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="1000" mode="tree">
+            <log id="TreeWithMetaDataLogger.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.TreeWithMetaDataLogger" branchratemodel="@RandomLocalClock.c:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+        </logger>
+        <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
+    </run>
+
+</beast>
