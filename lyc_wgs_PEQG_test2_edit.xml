@@ -9,7 +9,7 @@ name="alignment">
 
 </data>
 
-	<data id='lyc_genomemax_no49_no51' spec='FilteredAlignment' filter='-' data='@lyc_genomemax_noBAT49_noTBY51' constantSiteWeights='50190 28322 28284 50114'>
+	<data id='lyc_genomemax_noBAT49_noTBY51_no49_no51' spec='FilteredAlignment' filter='-' data='@lyc_genomemax_noBAT49_noTBY51' constantSiteWeights='50190 28322 28284 50114'>
     </data>
 
     <map name="Uniform" >beast.base.inference.distribution.Uniform</map>
@@ -39,11 +39,18 @@ name="alignment">
                     <alignment idref="lyc_genomemax_noBAT49_noTBY51"/>
                 </taxonset>
             </tree>
-            <parameter id="birthRate.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+			<parameter id="rateAC.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="rateAG.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="rateCG.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="rateGT.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
+            <parameter id="freqParameter.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" dimension="4" lower="0.0" name="stateNode" upper="1.0">0.25</parameter>
             <parameter id="gammaShape.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.1" name="stateNode">1.0</parameter>
+            <parameter id="bPopSizes.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" dimension="5" lower="0.0" name="stateNode">380.0</parameter>
+            <stateNode id="bGroupSizes.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.IntegerParameter" dimension="5">1</stateNode>
             <stateNode id="Indicators.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.BooleanParameter" dimension="48">false</stateNode>
             <parameter id="clockrates.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" dimension="48" lower="1.0E-9" name="stateNode">1.0</parameter>
             <parameter id="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">0.0029</parameter>
+			<parameter id="birthRate.t:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" lower="0.0" name="stateNode">1.0</parameter>
         </state>
         <init id="RandomTree.t:lyc_genomemax_noBAT49_noTBY51" spec="RandomTree" estimate="false" initial="@Tree.t:lyc_genomemax_noBAT49_noTBY51" taxa="@lyc_genomemax_noBAT49_noTBY51">
             <populationModel id="ConstantPopulation0.t:lyc_genomemax_noBAT49_noTBY51" spec="ConstantPopulation">
@@ -52,30 +59,51 @@ name="alignment">
         </init>
         <distribution id="posterior" spec="CompoundDistribution">
             <distribution id="prior" spec="CompoundDistribution">
-                <distribution id="YuleModel.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.speciation.YuleModel" birthDiffRate="@birthRate.t:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
-                <prior id="RRateChangesPrior.c:lyc_genomemax_noBAT49_noTBY51" name="distribution">
-                    <x id="RRateChanges.c:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.Sum">
-                        <arg idref="Indicators.c:lyc_genomemax_noBAT49_noTBY51"/>
-                    </x>
-                    <distr id="Poisson.0" spec="distribution.Poisson">
-                        <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" name="lambda">0.6931471805599453</parameter>
+                <distribution id="BayesianSkyline.t:lyc_genomemax_noBAT49_noTBY51" spec="BayesianSkyline" groupSizes="@bGroupSizes.t:lyc_genomemax_noBAT49_noTBY51" popSizes="@bPopSizes.t:lyc_genomemax_noBAT49_noTBY51">
+                    <treeIntervals id="BSPTreeIntervals.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.tree.TreeIntervals" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
+				</distribution>
+                <distribution id="MarkovChainedPopSizes.t:lyc_genomemax_noBAT49_noTBY51" spec="distribution.MarkovChainDistribution" jeffreys="true" parameter="@bPopSizes.t:lyc_genomemax_noBAT49_noTBY51"/>
+                <prior id="FrequenciesPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@freqParameter.s:lyc_genomemax_noBAT49_noTBY51">
+                    <distr id="Dirichlet.0" spec="distribution.Dirichlet">
+                        <parameter id="RealParameter.13" spec="parameter.RealParameter" dimension="4" estimate="false" name="alpha">4.0 4.0 4.0 4.0</parameter>
                     </distr>
-                </prior>
-                <prior id="YuleBirthRatePrior.t:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@birthRate.t:lyc_genomemax_noBAT49_noTBY51">
-                    <Uniform id="Uniform.1" name="distr" upper="Infinity"/>
-                </prior>
-                <prior id="RRatesPrior.c:slyc_genomemax_noBAT49_noTBY51" name="distribution" x="@clockrates.c:lyc_genomemax_noBAT49_noTBY51">
-                    <Gamma id="Gamma.0" name="distr">
-                        <parameter id="RealParameter.3" spec="parameter.RealParameter" estimate="false" name="alpha">0.5</parameter>
-                        <parameter id="RealParameter.4" spec="parameter.RealParameter" estimate="false" name="beta">2.0</parameter>
-                    </Gamma>
                 </prior>
                 <prior id="GammaShapePrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51">
                     <Exponential id="Exponential.0" name="distr">
                         <parameter id="RealParameter.0" spec="parameter.RealParameter" estimate="false" name="mean">1.0</parameter>
                     </Exponential>
                 </prior>
-                <distribution id="TMRCAall.prior" spec="beast.base.evolution.tree.MRCAPrior" monophyletic="true" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
+                <prior id="RateACPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@rateAC.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.0" name="distr">
+                        <parameter id="RealParameter.1" spec="parameter.RealParameter" estimate="false" name="alpha">0.05</parameter>
+                        <parameter id="RealParameter.2" spec="parameter.RealParameter" estimate="false" name="beta">10.0</parameter>
+                    </Gamma>
+                </prior>
+                <prior id="RateAGPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@rateAG.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.1" name="distr">
+                        <parameter id="RealParameter.3" spec="parameter.RealParameter" estimate="false" name="alpha">0.05</parameter>
+                        <parameter id="RealParameter.4" spec="parameter.RealParameter" estimate="false" name="beta">20.0</parameter>
+                    </Gamma>
+                </prior>
+                <prior id="RateATPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@rateAT.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.2" name="distr">
+                        <parameter id="RealParameter.5" spec="parameter.RealParameter" estimate="false" name="alpha">0.05</parameter>
+                        <parameter id="RealParameter.6" spec="parameter.RealParameter" estimate="false" name="beta">10.0</parameter>
+                    </Gamma>
+				 </prior>
+                <prior id="RateCGPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@rateCG.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.3" name="distr">
+                        <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="alpha">0.05</parameter>
+                        <parameter id="RealParameter.8" spec="parameter.RealParameter" estimate="false" name="beta">10.0</parameter>
+                    </Gamma>
+                </prior>
+                <prior id="RateGTPrior.s:lyc_genomemax_noBAT49_noTBY51" name="distribution" x="@rateGT.s:lyc_genomemax_noBAT49_noTBY51">
+                    <Gamma id="Gamma.5" name="distr">
+                        <parameter id="RealParameter.11" spec="parameter.RealParameter" estimate="false" name="alpha">0.05</parameter>
+                        <parameter id="RealParameter.12" spec="parameter.RealParameter" estimate="false" name="beta">10.0</parameter>
+                    </Gamma>
+                </prior>
+			    <distribution id="TMRCAall.prior" spec="beast.base.evolution.tree.MRCAPrior" monophyletic="true" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
                     <taxonset id="TMRCAall" spec="TaxonSet">
                         <taxon id="ABM20" spec="Taxon"/>
                         <taxon id="BAT20" spec="Taxon"/>
@@ -92,7 +120,7 @@ name="alignment">
                         <taxon id="LOTIS" spec="Taxon"/>
                         <taxon id="LS19" spec="Taxon"/>
                         <taxon id="MEN12" spec="Taxon"/>
-			<taxon id="MR20" spec="Taxon"/>
+						<taxon id="MR20" spec="Taxon"/>
                         <taxon id="MTU20" spec="Taxon"/>
                         <taxon id="SBW18" spec="Taxon"/>
                         <taxon id="SHC11" spec="Taxon"/>
@@ -136,27 +164,46 @@ name="alignment">
                         <taxon idref="YG20"/>
                     </taxonset>
                     <Normal id="Normal.0" name="distr">
-                        <parameter id="RealParameter.6" spec="parameter.RealParameter" estimate="false" name="mean">1.29</parameter>
-                        <parameter id="RealParameter.7" spec="parameter.RealParameter" estimate="false" name="sigma">0.167</parameter>
+						<parameter id="RealParameter.23" spec="parameter.RealParameter" estimate="false" name="mean">1.29</parameter>
+                        <parameter id="RealParameter.24" spec="parameter.RealParameter" estimate="false" name="sigma">0.167</parameter>
                     </Normal>
                 </distribution>
+                <prior id="RRatesPrior.c:slyc_genomemax_noBAT49_noTBY51" distr="@Gamma.0" name="distribution" x="@clockrates.c:lyc_genomemax_noBAT49_noTBY51"/>
+                <prior id="RRateChangesPrior.c:lyc_genomemax_noBAT49_noTBY51" name="distribution">
+                    <x id="RRateChanges.c:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.Sum">
+                        <arg idref="Indicators.c:lyc_genomemax_noBAT49_noTBY51"/>
+                    </x>
+                    <distr id="Poisson.0" spec="distribution.Poisson">
+                        <parameter id="RealParameter.33" spec="parameter.RealParameter" estimate="false" name="lambda">0.6931471805599453</parameter>
+                    </distr>
+                </prior>
             </distribution>
             <distribution id="likelihood" spec="CompoundDistribution" useThreads="true">
                 <distribution id="treeLikelihood.lyc_genomemax_noBAT49_noTBY51" spec="ThreadedTreeLikelihood" data="@lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51">
                     <siteModel id="SiteModel.s:lyc_genomemax_noBAT49_noTBY51" spec="SiteModel" gammaCategoryCount="4" shape="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51">
                         <parameter id="mutationRate.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" estimate="false" lower="0.0" name="mutationRate">1.0</parameter>
                         <parameter id="proportionInvariant.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.0</parameter>
-                        <substModel id="JC69.s:lyc_genomemax_noBAT49_noTBY51" spec="JukesCantor"/>
+                        <substModel id="gtr.s:lyc_genomemax_noBAT49_noTBY51" spec="GTR" rateAC="@rateAC.s:lyc_genomemax_noBAT49_noTBY51" rateAG="@rateAG.s:lyc_genomemax_noBAT49_noTBY51" rateAT="@rateAT.s:lyc_genomemax_noBAT49_noTBY51" rateCG="@rateCG.s:lyc_genomemax_noBAT49_noTBY51" rateGT="@rateGT.s:lyc_genomemax_noBAT49_noTBY51">
+                            <parameter id="rateCT.s:lyc_genomemax_noBAT49_noTBY51" spec="parameter.RealParameter" estimate="false" lower="0.0" name="rateCT">1.0</parameter>
+                            <frequencies id="estimatedFreqs.s:lyc_genomemax_noBAT49_noTBY51" spec="Frequencies" frequencies="@freqParameter.s:lyc_genomemax_noBAT49_noTBY51"/>
+                        </substModel>
                     </siteModel>
                     <branchRateModel id="RandomLocalClock.c:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.branchratemodel.RandomLocalClockModel" clock.rate="@meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" indicators="@Indicators.c:lyc_genomemax_noBAT49_noTBY51" rates="@clockrates.c:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
                 </distribution>
             </distribution>
         </distribution>
-        <operator id="gammaShapeScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
-            <parameter idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+        <operator id="RateACScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+			<parameter idref="rateAC.s:lyc_genomemax_noBAT49_noTBY51"/>
             <operator id="AVMNOperator.lyc_genomemax_noBAT49_noTBY51" spec="kernel.AdaptableVarianceMultivariateNormalOperator" allowNonsense="true" beta="0.05" burnin="400" initial="800" weight="0.1">
-                <transformations id="AVMNSumTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$LogConstrainedSumTransform"/>
+                <transformations id="AVMNSumTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$LogConstrainedSumTransform">
+                    <f idref="freqParameter.s:lyc_genomemax_noBAT49_noTBY51"/>
+                </transformations>
                 <transformations id="AVMNLogTransform.lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.Transform$LogTransform">
+                    <f idref="rateAC.s:lyc_genomemax_noBAT49_noTBY51"/>
+                    <f idref="rateAG.s:lyc_genomemax_noBAT49_noTBY51"/>
+                    <f idref="rateAT.s:lyc_genomemax_noBAT49_noTBY51"/>
+                    <f idref="rateCG.s:lyc_genomemax_noBAT49_noTBY51"/>
+                    <f idref="rateGT.s:lyc_genomemax_noBAT49_noTBY51"/>
                     <f idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
                     <f idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
                 </transformations>
@@ -164,50 +211,119 @@ name="alignment">
                     <f idref="Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
                 </transformations>
             </operator>
+            <operator id="RateACScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@rateAC.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+        <operator id="RateAGScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="rateAG.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="RateAGScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@rateAG.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+        <operator id="RateATScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="rateAT.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="RateATScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@rateAT.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+		<operator id="RateCGScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="rateCG.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="RateCGScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@rateCG.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+        <operator id="RateGTScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="rateGT.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="RateGTScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@rateGT.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
+        </operator>
+        <operator id="FrequenciesExchanger.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="freqParameter.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
+            <operator id="FrequenciesExchangerX.s:lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.BactrianDeltaExchangeOperator" delta="0.01" weight="0.1">
+                <parameter idref="freqParameter.s:lyc_genomemax_noBAT49_noTBY51"/>
+            </operator>
+        </operator>
+        <operator id="gammaShapeScaler.s:lyc_genomemax_noBAT49_noTBY51" spec="AdaptableOperatorSampler" weight="0.05">
+            <parameter idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <operator idref="AVMNOperator.lyc_genomemax_noBAT49_noTBY51"/>
             <operator id="gammaShapeScalerX.s:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@gammaShape.s:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.5" upper="10.0" weight="0.1"/>
         </operator>
-        <operator id="YuleBirthRateScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@birthRate.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="3.0"/>
-        <operator id="YuleModelTreeRootScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" rootOnly="true" scaleFactor="0.5" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="3.0"/>
-        <operator id="YuleModelUniformOperator.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianNodeOperator" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="30.0"/>
-        <operator id="YuleModelSubtreeSlide.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianSubtreeSlide" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
-        <operator id="YuleModelNarrow.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
-        <operator id="YuleModelWide.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" isNarrow="false" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
-        <operator id="YuleModelWilsonBalding.t:lyc_genomemax_noBAT49_noTBY51" spec="WilsonBalding" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
-        <operator id="YuleModelBICEPSEpochTop.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
-        <operator id="YuleModelBICEPSEpochAll.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" fromOldestTipOnly="false" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
-        <operator id="YuleModelBICEPSTreeFlex.t:lyc_genomemax_noBAT49_noTBY51" spec="TreeStretchOperator" scaleFactor="0.01" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="BayesianSkylineBICEPSEpochTop.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="BayesianSkylineBICEPSEpochAll.t:lyc_genomemax_noBAT49_noTBY51" spec="EpochFlexOperator" fromOldestTipOnly="false" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="BayesianSkylineBICEPSTreeFlex.t:lyc_genomemax_noBAT49_noTBY51" spec="TreeStretchOperator" scaleFactor="0.046" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="2.0"/>
+        <operator id="BayesianSkylineTreeRootScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" rootOnly="true" scaleFactor="0.1" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="3.0"/>
+        <operator id="BayesianSkylineUniformOperator.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianNodeOperator" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="30.0"/>
+		<operator id="BayesianSkylineSubtreeSlide.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianSubtreeSlide" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="BayesianSkylineNarrow.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="BayesianSkylineWide.t:lyc_genomemax_noBAT49_noTBY51" spec="Exchange" isNarrow="false" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
+        <operator id="BayesianSkylineWilsonBalding.t:lyc_genomemax_noBAT49_noTBY51" spec="WilsonBalding" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51" weight="3.0"/>
+        <operator id="popSizesScaler.t:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@bPopSizes.t:lyc_genomemax_noBAT49_noTBY51" upper="10.0" weight="15.0"/>
+        <operator id="groupSizesDelta.t:lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.BactrianDeltaExchangeOperator" integer="true" weight="6.0">
+            <intparameter idref="bGroupSizes.t:lyc_genomemax_noBAT49_noTBY51"/>
+        </operator>
+        <operator id="IndicatorsBitFlip.c:lyc_genomemax_noBAT49_noTBY51" spec="operator.BitFlipOperator" parameter="@Indicators.c:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
+        <operator id="ClockRateScaler.c:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@clockrates.c:lyc_genomemax_noBAT49_noTBY51" scaleFactor="12.39" upper="10.0" weight="15.0"/>
         <operator id="randomClockScaler.c:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@meanClockRate.c:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.1" upper="10.0" weight="1.0"/>
         <operator id="randomClockUpDownOperator.c:lyc_genomemax_noBAT49_noTBY51" spec="operator.kernel.BactrianUpDownOperator" scaleFactor="0.1" weight="3.0">
             <up idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
             <down idref="Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
         </operator>
-        <operator id="IndicatorsBitFlip.c:lyc_genomemax_noBAT49_noTBY51" spec="operator.BitFlipOperator" parameter="@Indicators.c:lyc_genomemax_noBAT49_noTBY51" weight="15.0"/>
-        <operator id="ClockRateScaler.c:lyc_genomemax_noBAT49_noTBY51" spec="kernel.BactrianScaleOperator" parameter="@clockrates.c:lyc_genomemax_noBAT49_noTBY51" scaleFactor="0.1" upper="10.0" weight="15.0"/>
         <logger id="tracelog" spec="Logger" fileName="$(filebase).log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
             <log idref="posterior"/>
             <log idref="likelihood"/>
             <log idref="prior"/>
             <log idref="treeLikelihood.lyc_genomemax_noBAT49_noTBY51"/>
             <log id="TreeHeight.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.tree.TreeStatLogger" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
-            <log idref="YuleModel.t:lyc_genomemax_noBAT49_noTBY51"/>
-            <log idref="birthRate.t:lyc_genomemax_noBAT49_noTBY51"/>
+			<log idref="rateAC.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="rateAG.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="rateAT.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="rateCG.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="rateGT.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="freqParameter.s:lyc_genomemax_noBAT49_noTBY51"/>
             <log idref="gammaShape.s:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="TMRCAall.prior"/>
+            <log idref="TMRCAlyc.prior"/>
+            <log idref="BayesianSkyline.t:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="bPopSizes.t:lyc_genomemax_noBAT49_noTBY51"/>
+            <log idref="bGroupSizes.t:lyc_genomemax_noBAT49_noTBY51"/>
             <log idref="Indicators.c:lyc_genomemax_noBAT49_noTBY51"/>
             <log idref="clockrates.c:lyc_genomemax_noBAT49_noTBY51"/>
             <log idref="RRateChanges.c:lyc_genomemax_noBAT49_noTBY51"/>
-            <log idref="TMRCAall.prior.prior"/>
             <log idref="meanClockRate.c:lyc_genomemax_noBAT49_noTBY51"/>
-            <log idref="TMRCALyc.prior.prior"/>
         </logger>
-        <logger id="screenlog" spec="Logger" logEvery="1000">
+        <logger id="screenlog" spec="Logger" logEvery="5000">
             <log idref="posterior"/>
             <log idref="likelihood"/>
             <log idref="prior"/>
         </logger>
-        <logger id="treelog.t:lyc_genomemax_noBAT49_noTBY51" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="1000" mode="tree">
+        <logger id="treelog.t:lyc_genomemax_noBAT49_noTBY51" spec="Logger" fileName="$(filebase)-$(tree).trees" logEvery="5000" mode="tree">
             <log id="TreeWithMetaDataLogger.t:lyc_genomemax_noBAT49_noTBY51" spec="beast.base.evolution.TreeWithMetaDataLogger" branchratemodel="@RandomLocalClock.c:lyc_genomemax_noBAT49_noTBY51" tree="@Tree.t:lyc_genomemax_noBAT49_noTBY51"/>
         </logger>
         <operatorschedule id="OperatorSchedule" spec="OperatorSchedule"/>
     </run>
 
 </beast>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					
+				
+				
+				
+				
+			
