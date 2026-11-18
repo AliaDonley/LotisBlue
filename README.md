@@ -1,8 +1,10 @@
-Divergence time estimation for the extinct Lotis blue butterfly. Using Zach Gompert's LycAdmixMosaic method for genomic analysis and population structure analysis. 
+Notes and scripts for our study of the extinct Lotis blue butterfly (Lycaeides anna lotis) using museum genomics and whole genome pool-seq data. Aim is to place Lotis blue in time calibrated phylogeny of NA Lycaeides, identify closest extant relative, and estimate divergence time. 
+
+Builds directly on Zach Gompert's LycAdmixMosaic method for genomic analysis and population structure analysis. 
 
 # Data
 
-Raw pool-seq data currently in: /uufs/chpc.utah.edu/common/home/gompert-group5/data/lycaeides_poolseq/Alignment. The set of samples I used here are form a single round of sequencing
+Raw pool-seq data currently in: /uufs/chpc.utah.edu/common/home/gompert-group5/data/lycaeides_poolseq/Alignment. The set of samples I used here are from a single round of sequencing. Three musuem samples were added (lotis, tby51, and bat49). 
 
 population    Samples(N)    Nominal taxon
 Insert table here
@@ -37,15 +39,18 @@ Insert table here
 | YG		 | YG20 (48)  | L. anna |
 
 
-The outgroup, MEN, is Plebejus argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
+The outgroup, MEN, is Lycaeides (Plebejus) argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
 
 #check report numbers here
 
 
 # DNA Sequence Alignment
 
-We aligned the DNA sequence data to the updated PacBio _L. melissa_ genome. I used bwa-mem2 version #### (https://github.com/bwa-mem2/bwa-mem2)
-I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. 
+We aligned the DNA sequence data to the updated PacBio _L. melissa_ genome (/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta). 
+
+I used bwa-mem2 version 2.0pre2 (https://github.com/bwa-mem2/bwa-mem2)
+I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. Used samtools (version 1.16) to sort, index, and merge by population. 
+
 ## index genome with bwa-mem2
 ```sh
 /uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
@@ -121,7 +126,7 @@ cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignme
 
 perl ../Scripts/MergeFork.pl
 ``` 
-Which runs:
+Which runs MergeFork.pl:
 ```pl
 #!/usr/bin/perl
 #
@@ -151,7 +156,7 @@ foreach $id (@IDs){
 $pm->wait_all_children;
 ```
 # Removing PCR Duplicates
-We used samtools (version ##) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
+Zach also did this. We used samtools (version 1.16) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
 ```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
@@ -230,17 +235,62 @@ Output:
 
 
 # MapDamage
-We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. To do this we used SubMapDamFork.sh
+We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated and if it carried typical aDNA damage patterns. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. 
+	Soft clipped: Counted soft-slipped bases per sample with [CountSoftClip.pl](CountSoftClip.pl) and 		CountSoftClipsA.pl? submitted with SubCountSoftClipsA.sh
+	Read-length filter: to reduce noise for mapDamage2 I kept only reads of at least 50bp with [FilterFork.pl](FilterFork.pl), submitted with [SubFilterFork.sh](SubFilterFork.sh). 
 
+Notes on this step are in notes/mapDamage2_notes.  Becuase post-mortem deamination in musuem DNA creates C->T and G->A changes, all final analyses use a hard filter that removes those substitutions. 
 
+To do this we used SubMapDamFork.sh:
+```
+#!/bin/sh
+#SBATCH --time=50:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=25
+#SBATCH --account=gompert-kp
+#SBATCH --partition=gompert-kp
+#SBATCH --job-name=lotismapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load perl
+module load samtools
+module load bwa
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl MapDamFork.pl *bam
+```
 Which runs MapDamFork.pl
+```
+#!/usr/bin/perl
+#
+# run mapdamage
+#
 
+
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filteredMapDamage";
+        print "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
+        system "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+```
 
 
 # Variant Calling
 
-Variants were called with bcftools (version##). We did not perform INDEL realignment--WHY?
-The following submission script was submitted:
+Variants were called with bcftools (version 1.16). We did not perform INDEL realignment.Called variants for all 27 samples jointly following LycAdmixMosaic. Each of 23 chromosomes run seperately (each chrom*list file holds the scaffold name for one chrom. 
+
+The following submission script SubVariantCall.sh was submitted:
 ```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
@@ -250,20 +300,20 @@ The following submission script was submitted:
 #SBATCH --partition=gompert-np
 #SBATCH --job-name=bcf_call
 #SBATCH --mail-type=FAIL
-#SBATCH --mail-user=zach.gompert@usu.edu
+#SBATCH --mail-user=alia.donley@usu.edu
 
 module load samtools
 ## version 1.16
 module load bcftools
 ## version 1.16
 
-cd /scratch/general/nfs1/dedup
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
-perl /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Scripts/BcfForkLg.pl chrom*list 
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
 ```
 FIX TO MY PATH
 
-which runs
+which runs VariantCall.pl:
 ```pl
 #!/usr/bin/perl
 #
@@ -287,8 +337,7 @@ foreach $chrom (@ARGV){
 $pm->wait_all_children;
 ```
 Each chromosome scaffold is being processes seperately as a chrom*list
-
-The variant data can be found in: 
+# Post-mortem damage filtering
 
 We filtered the .vcf file with GATK (version ##), keeping only those (bases or snps)? with mapping quality>30, depth>1350, and bias scores less than +/-3. This was done with [VarFiltFork2.pl](VarFiltFork2.pl)
 ```pl
@@ -327,7 +376,31 @@ foreach $vcf (@ARGV){
 $pm->wait_all_children;
 ```
 
-Allele depths were extracted from the filtered .vcf files. INDELS and multialleleic data were dropped here too. 
+Which was subitted using SubVarFiltFork2.sh
+```
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VarFilt
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
+```
+# AD files and SNP files
+The following analyses are in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+Allele depths were extracted from the filtered .vcf files. INDELS and multialleleic data were dropped here too. I tried many iterations of this. Tried all 27 samples, no bat49, no tby51, no bat and tby, and the corrected filtered set of no tby and bat. 
+
 [AD.sh](AD.sh)
 ```sh
 #!/usr/bin/bash
@@ -344,7 +417,7 @@ do
         grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
 done
 ```
-output:
+output: ad1_fff_o_lycpool_chrom*.filtered.txt AND ad1_fff_o_lycpool_chrom2_noBAT49_noTBY51_filtered.txt
 
 We also grapped the SNP information with [SNP.sh](SNP.sh)
 ```sh
@@ -361,19 +434,24 @@ do
 	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out 
 done
 ```
+
+output: snpinfo_fff_o_lycpool_chrom*.txt AND snpinfo_fff_o_lycpool_chrom1_noBAT49_noTBY51_filtered.txt
+
 # Population Genetic Structure
 
+We summarized population structrue from allele frequencies (ad2/(ad1+ad2)) per chromosome. Outgroup MEN is exclused from PCAs and poops are matched by name rather than column number
+	-Genotype PCAs per chrom and pariwise F<sub>ST</sub> by pop pair and chrom, plus windowed F<sub>ST</sub> for focal pairs. In [pcaFST.R](pcaFST.R), [pcaFST2.R](pcaFST2.R), [pcaFST3.R](pcaFST3.R). Fst_filtered.R is final F<sub>ST</sub> script. 
+	- PCoA of F<sub>ST</sub> matricies and combined map+PCA figure for autosomes vs Z: [mapPCA.R](mapPCA.R)
 
+Lotis has elevated F<sub>ST</sub>. Expected for small, low coverage museum pool data. 
 
-
-
-
-
-
-
-
-
-
+# Time Calibrated phylogenetic tree
+Estimated time-calibrated tree with BEAST (version 2.7.8) and coupled MCMC package. BEAST cannot handle whole genome data sets, so we need to subset the data. 
+	- Consensus alignments: Made consensus sequence for each population by taking the most common allele at each SNP from AD files. Inserted N where fewer than 5 reads were observed. Using the GA/CT filtered depth files, submitted [mkMaxFasta.R](mkMaxFasta.R) which writes gact_max_chrom{1..23}.fasta. Ran with:
+```
+Rscript mkMaxFasta.R "^ad1_fff_o_lycpool_chrom[0-9.]+\\.filtered\\.txt$" gact_max_chrom IDs_vcf.txt
+```
+(all samples, ~10 million snps)
 
 # This is down to where I thoughtfully went through it all. Everything below is just formatted. 
 
