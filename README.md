@@ -41,635 +41,18 @@ Insert table here
 
 The outgroup, MEN, is Lycaeides (Plebejus) argyrognomon. The data were generated and cleaned up by BGI (with soapnuke). Here is the report from BGI: BGI_F22FTSUSAT0310-01_LYCgpswR_report_en.pdf. The sequence data (in bam format) are now in the NCBI SRA (PRJNA1375794). 
 
-#check report numbers here
 
+
+################################################################################## SECOND RUN AFTER SCRATCH SPACE WAS WIPED########################################################################
 
 # DNA Sequence Alignment
 
-We aligned the DNA sequence data to the updated PacBio _L. melissa_ genome (/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta). 
+We aligned the DNA sequence data to the updated PacBio _L. melissa_ genome (/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta). PCR duplicates were removed at this point as well. 
 
-I used bwa-mem2 version 2.0pre2 (https://github.com/bwa-mem2/bwa-mem2)
-I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. Used samtools (version 1.16) to sort, index, and merge by population. 
+Used bwa-mem2 version 2.0pre2 (https://github.com/bwa-mem2/bwa-mem2) for alignment
+I had access to the already indexed reference genome done by Zach Gompert which can be found in: /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome. Indexed files were wiped, re-indexed below. Used samtools (version 1.16) to sort, index, and merge by population. 
 
-## index genome with bwa-mem2
-```sh
-/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
-```
-We set up the alignment using the submission script
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=20
-#SBATCH --account=gompert-kp
-#SBATCH --partition=gompert-kp
-#SBATCH --job-name=bwa-mem2
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=zach.gompert@usu.edu
-
-module load samtools
-##Version: 1.16 (using htslib 1.16)
-
-cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignments
-
-perl BwaMemFork.pl ../F22FTSUSAT0310-01_LYCgpswR/soapnuke/clean/*/*1.fq.gz 
-
-```
-
-
-Which runs
-```perl
-#!/usr/bin/perl
-#
-# alignment with bwa mem 
-#
-
-
-use Parallel::ForkManager;
-my $max = 40;
-my $pm = Parallel::ForkManager->new($max);
-my $genome = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
-
-FILES:
-foreach $fq1 (@ARGV){
-	$pm->start and next FILES; ## fork
-	$fq2 = $fq1;
-	$fq2 =~ s/_1\.fq\.gz/_2.fq.gz/ or die "failed substitution for $fq1\n";
-        $fq1 =~ m/clean\/([A-Za-z0-9]+)/ or die "failed to match id $fq1\n";
-	$ind = $1;
-	$fq1 =~ m/([A-Za-z_\-0-9]+)_1\.fq\.gz$/ or die "failed match for file $fq1\n";
-	$file = $1;
-        system "/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem -t 1 -k 19 -r 1.5 -R \'\@RG\\tID:Lyc-"."$ind\\tLB:Lyc-"."$ind\\tSM:Lyc-"."$ind"."\' $genome $fq1 $fq2 | samtools sort -@ 2 -O BAM -o $ind"."_$file.bam - && samtools index -@ 2 $ind"."_$file.bam\n";
-
-	$pm->finish;
-}
-```
-## Zach aligned ^^^
-All downstream analysis can be found in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-We used samtools (version ##) to sort and index the alignments. Following this, the .bam files for each population were merged using samtools (version ##). This was submitted using the shell script:
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=20
-#SBATCH --account=gompert-np
-#SBATCH --partition=gompert-np
-#SBATCH --job-name=merge
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=zach.gompert@usu.edu
-
-module load samtools
-##Version: 1.16 (using htslib 1.16)
-
-cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignment
-
-perl ../Scripts/MergeFork.pl
-``` 
-Which runs MergeFork.pl:
-```pl
-#!/usr/bin/perl
-#
-# merge alignments for each population sample with samtools version XX 
-#
-
-
-use Parallel::ForkManager;
-my $max = 40;
-my $pm = Parallel::ForkManager->new($max);
-
-open(IDS,"pids.txt");
-while(<IDS>){
-	chomp;
-	push(@IDs,$_);
-}
-close(IDS);
-
-FILES:
-foreach $id (@IDs){
-	$pm->start and next FILES; ## fork
-        system "samtools merge -c -p -o Merged/$id.bam $id"."_*.bam\n";
-	system "samtools index -@ 2 Merged/$id.bam\n";
-	$pm->finish;
-}
-
-$pm->wait_all_children;
-```
-# Removing PCR Duplicates
-Zach also did this. We used samtools (version 1.16) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=20
-#SBATCH --account=gompert-np
-#SBATCH --partition=gompert-np
-#SBATCH --job-name=dedup
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=zach.gompert@usu.edu
-
-module load samtools
-##Version: 1.16 (using htslib 1.16)
-
-
-cd /scratch/general/nfs1/dedup
-
-perl /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Scripts/RemoveDupsFork.pl *bam
-```
-Which runs
-```pl
-#!/usr/bin/perl
-#
-# PCR duplicate removal with samtools
-#
-
-
-use Parallel::ForkManager;
-my $max = 40;
-my $pm = Parallel::ForkManager->new($max);
-
-FILES:
-foreach $bam (@ARGV){
-	$pm->start and next FILES; ## fork
-	$bam =~ m/^([A-Za-z0-9]+)/ or die "failed to match $bam\n";
-	$base = $1;
-	system "samtools collate -o co_$base.bam $bam /scratch/general/nfs1/dedup/t$bam\n";
-	system "samtools fixmate -m co_$base.bam fix_$base.bam\n";
-	system "samtools sort -o sort_$base.bam fix_$base.bam\n";
-	## using default definition of dups
-	## measure positions based on template start/end (default). = -m t
-	system "markdup -T /scratch/general/nfs1/dedup -r sort_$base.bam dedup_$base.bam\n";
-	$pm->finish;
-}
-
-$pm->wait_all_children;
-```
-# Filter ends 
-Filter (ct and ga) before mapdamage. Tried doing it in perl, gave up and just ran interactively with 
-FilterFork.sh
-```sh
-#!/bin/sh
-#SBATCH --time=48:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=gompert #SBATCH --partition=kingspeak
-#SBATCH --job-name=filter
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load samtools
-cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-for bam in *.bam; do base=$(basename "$bam" .bam) out="${base}.filtered${minlen}.bam"
-samtools view -h "$bam"
-| awk -v m="$minlen" '($1 ~ /^@/) || (length($10) >= 50)'
-| samtools view -b -o "$out" -
-
-samtools index "$out" done
-```
-Output: 
-
-
-
-
-
-
-
-# MapDamage
-We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated and if it carried typical aDNA damage patterns. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. 
-	Soft clipped: Counted soft-slipped bases per sample with [CountSoftClip.pl](CountSoftClip.pl) and 		CountSoftClipsA.pl? submitted with SubCountSoftClipsA.sh
-	Read-length filter: to reduce noise for mapDamage2 I kept only reads of at least 50bp with [FilterFork.pl](FilterFork.pl), submitted with [SubFilterFork.sh](SubFilterFork.sh). 
-
-Notes on this step are in notes/mapDamage2_notes.  Becuase post-mortem deamination in musuem DNA creates C->T and G->A changes, all final analyses use a hard filter that removes those substitutions. 
-
-To do this we used SubMapDamFork.sh:
-```
-#!/bin/sh
-#SBATCH --time=50:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=25
-#SBATCH --account=gompert-kp
-#SBATCH --partition=gompert-kp
-#SBATCH --job-name=lotismapdamagefiltered
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load perl
-module load samtools
-module load bwa
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-perl MapDamFork.pl *bam
-```
-Which runs MapDamFork.pl
-```
-#!/usr/bin/perl
-#
-# run mapdamage
-#
-
-
-use Parallel::ForkManager;
-my $max = 30;
-my $pm = Parallel::ForkManager->new($max);
-
-foreach $file (@ARGV){
-        $pm->start and next; ## fork
-        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
-        $id = $1;
-        $out = "output_$id"."_filteredMapDamage";
-        print "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
-        system "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
-        $pm->finish;
-}
-$pm->wait_all_children;
-```
-
-
-# Variant Calling
-
-Variants were called with bcftools (version 1.16). We did not perform INDEL realignment.Called variants for all 27 samples jointly following LycAdmixMosaic. Each of 23 chromosomes run seperately (each chrom*list file holds the scaffold name for one chrom. 
-
-The following submission script SubVariantCall.sh was submitted:
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=gompert-np
-#SBATCH --partition=gompert-np
-#SBATCH --job-name=bcf_call
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load samtools
-## version 1.16
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
-```
-FIX TO MY PATH
-
-which runs VariantCall.pl:
-```pl
-#!/usr/bin/perl
-#
-# samtools/bcftools variant calling by LG 
-#
-use Parallel::ForkManager;
-my $max = 26;
-my $pm = Parallel::ForkManager->new($max);
-
-my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
-
-foreach $chrom (@ARGV){
-	$pm->start and next; ## fork
-        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
-	$out = "o_lycpool_chrom$1";
-	system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
-	$pm->finish;
-
-}
-
-$pm->wait_all_children;
-```
-Each chromosome scaffold is being processes seperately as a chrom*list
-# Post-mortem damage filtering
-
-We filtered the .vcf file with GATK (version ##), keeping only those (bases or snps)? with mapping quality>30, depth>1350, and bias scores less than +/-3. This was done with [VarFiltFork2.pl](VarFiltFork2.pl)
-```pl
-#!/usr/bin/perl
-#
-# filter vcf with GATK and tabix 
-#
-
-use Parallel::ForkManager;
-my $max = 26;
-my $pm = Parallel::ForkManager->new($max);
-
-
-
-my $ref = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
-my $gatk = "/uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar"; 
-
-
-foreach $vcf (@ARGV){
-        $pm->start and next; ## fork
-        $in = $vcf; ##don't need to gunzip here..?
-        $in =~ s/\.gz//; ## drops .gz from the filename
-        $o = "fff_$vcf"; ## outfile with name fff_xxxx.vcf.gz ##if not zipped, switch variable to $in      
-
-        system "~/bin/tabix $vcf\n"; ##tabix needs bgzipped (should be .gz)
-        system "bgzip -d $vcf\n"; ## unzipe file- correct
-        
-        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar IndexFeatureFile -I $in\n";
-        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar VariantFiltration -R $ref -V $in -O $o --filter-name \"bqbz\" --filter-expression \"BQBZ > 3.0 || BQBZ < -3.0\" --filter-name \"mqbz\" --filter-expression \"MQBZ > 3.0 || MQBZ < -3.0\" --filter-name \"rpbz\" --filter-expression \"RPBZ > 3.0 || RPBZ < -3.0\" --filter-name \"depth\" --filter-expression \"DP < 1350\" --filter-name \"mapping\" --filter-expression \"MQ < 30\" --verbosity ERROR\n";
-        system "bgzip -d $o\n";
-
-        $pm->finish;
-
-}
-
-$pm->wait_all_children;
-```
-
-Which was subitted using SubVarFiltFork2.sh
-```
-#!/bin/sh
-#SBATCH --time=72:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=VarFilt
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-
-module load samtools
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
-```
-# AD files and SNP files
-The following analyses are in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
-Allele depths were extracted from the filtered .vcf files. INDELS and multialleleic data were dropped here too. I tried many iterations of this. Tried all 27 samples, no bat49, no tby51, no bat and tby, and the corrected filtered set of no tby and bat. 
-
-[AD.sh](AD.sh)
-```sh
-#!/usr/bin/bash
-#
-# extract allele depth AD from biallelic SNPs that passed filtering
-#
-
-for f in fff*vcf
-do
-        echo "Processing $f"
-        out="$(echo $f | sed -e 's/vcf/txt/')"
-        echo "Output is ad1_$out"
-        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
-        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
-done
-```
-output: ad1_fff_o_lycpool_chrom*.filtered.txt AND ad1_fff_o_lycpool_chrom2_noBAT49_noTBY51_filtered.txt
-
-We also grapped the SNP information with [SNP.sh](SNP.sh)
-```sh
-#!/usr/bin/bash
-#
-# extract alleles from biallelic SNPs that passed filtering
-#
-
-for f in fff*vcf
-do
-	echo "Processing $f"
-	out="$(echo $f | sed -e 's/vcf/txt/')"
-	echo "Output is snps_$out"
-	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out 
-done
-```
-
-output: snpinfo_fff_o_lycpool_chrom*.txt AND snpinfo_fff_o_lycpool_chrom1_noBAT49_noTBY51_filtered.txt
-
-# Population Genetic Structure
-
-We summarized population structrue from allele frequencies (ad2/(ad1+ad2)) per chromosome. Outgroup MEN is exclused from PCAs and poops are matched by name rather than column number
-	-Genotype PCAs per chrom and pariwise F<sub>ST</sub> by pop pair and chrom, plus windowed F<sub>ST</sub> for focal pairs. In [pcaFST.R](pcaFST.R), [pcaFST2.R](pcaFST2.R), [pcaFST3.R](pcaFST3.R). Fst_filtered.R is final F<sub>ST</sub> script. 
-	- PCoA of F<sub>ST</sub> matricies and combined map+PCA figure for autosomes vs Z: [mapPCA.R](mapPCA.R)
-
-Lotis has elevated F<sub>ST</sub>. Expected for small, low coverage museum pool data. 
-
-# Time Calibrated phylogenetic tree
-Estimated time-calibrated tree with BEAST (version 2.7.8) and coupled MCMC package. BEAST cannot handle whole genome data sets, so we need to subset the data. 
-	- Consensus alignments: Made consensus sequence for each population by taking the most common allele at each SNP from AD files. Inserted N where fewer than 5 reads were observed. Using the GA/CT filtered depth files, submitted [mkMaxFasta.R](mkMaxFasta.R) which writes gact_max_chrom{1..23}.fasta. Ran with:
-```
-Rscript mkMaxFasta.R "^ad1_fff_o_lycpool_chrom[0-9.]+\\.filtered\\.txt$" gact_max_chrom IDs_vcf.txt
-```
-(all samples, ~10 million snps)
-
-# This is down to where I thoughtfully went through it all. Everything below is just formatted. 
-
-
-
-
-
-
-
-# Counting Softclipping for real dataset
-```sh
-for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
-    chrom=$(echo $f | grep -oP '\d+(?=\.fasta)')
-    nchar=$(grep -v ">" $f | head -1 | tr -d '\n' | wc -c)
-    size=$(du -sh $f | cut -f1)
-    echo -e "chrom${chrom}\t${nchar}\t${size}"
-done | sort -t'm' -k2 -n
-```
-
-# Mapdamage on Real Dataset 
-```pl
-##MapDamFork.pl
-#!/usr/bin/perl
-#run mapdamage
-
-use Parallel::ForkManager;
-my $max = 30;
-my $pm = Parallel::ForkManager->new($max);
-
-foreach $file (@ARGV){
-        $pm->start and next; ## fork
-        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
-        $id = $1;
-        $out = "output_$id"."_filteredMapDamage";
-        print "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
-        system "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
-        $pm->finish;
-}
-$pm->wait_all_children;
-```
-
-Run by SubMapDamFork.sh
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=25
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=xercesmapdamagefiltered
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load perl
-module load samtools
-module load bwa
-
-cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
-
-perl MapDamFork.pl *bam
-```
-
-RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET). I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
-
-USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
-# VARIANT CALLING
-USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
-DIDN'T HAVE THE INDEXED BAI FILES, NEEDED TO INDEX USING THIS SCRIPT: 
-
-Index.sh
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=Indexing
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load samtools
-## version 1.16
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
-
-for bam in *.bam
-do 
-echo "Indexing $bam..."
-samtools index "$bam"
-done
-```
-# Variant calling
-Ran with VariantCall.sh
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=VC_call
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load samtools
-## version 1.16
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
-perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VariantCall.pl chrom*list
-
-```
-
-Which ran: VariantCall.pl
-```pl
-#!/usr/bin/perl
-#
-# samtools/bcftools variant calling by LG 
-#
-
-use Parallel::ForkManager;
-my $max = 26;
-my $pm = Parallel::ForkManager->new($max);
-
-my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
-
-foreach $chrom (@ARGV){
-        $pm->start and next; ## fork
-        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
-        $out = "o_lycpool_chrom$1";
-        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
-        $pm->finish;
-
-}
-
-$pm->wait_all_children;
-```
-output: o_lycpool_chrom#.vcf
-
-# Filtering with GATK
-Ran: VarFiltFork2.sh
-```sh
-#!/bin/sh
-#SBATCH --time=240:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=VarFilt
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
-
-module load samtools
-## version 1.16
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
-
-perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VarFiltFork2.pl
-```
-
-Which Runs: VarFiltFork2.pl
-```pl
-#!/usr/bin/perl
-#
-# samtools/bcftools variant calling by LG 
-#
-
-use Parallel::ForkManager;
-my $max = 26;
-my $pm = Parallel::ForkManager->new($max);
-
-my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacB$
-
-foreach $chrom (@ARGV){
-        $pm->start and next; ## fork
-        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
-        $out = "o_lycpool_chrom$1";
-        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD $
-        $pm->finish;
-
-}
-$pm->wait_all_children;
-```
-# Allele depth files
-Next, extract allele depths from filtered vcf files. Also drops indels and multiallelic data. This gives ad1 and ad2. Ran with: AD.sh
-
-```sh
-#!/usr/bin/bash
-#
-# extract allele depth AD from biallelic SNPs that passed filtering 
-#
-
-for f in fff*vcf
-do
-        echo "Processing $f"
-        out="$(echo $f | sed -e 's/vcf/txt/')"
-        echo "Output is ad1_$out"
-        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out   
-        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
-done
-```
-
-
-
-
-
-
-
-
-
-
-# SECOND RUN AFTER SCRATCH SPACE WAS WIPED
+Start here 11/19
 
 ##All bam and bai index files are in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 # Indexing
@@ -777,15 +160,139 @@ cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
 
 perl MapDamFork.pl *bam
 ```
-
-# Variant Calling
-Make a folder containing all bams. Had to make the folder with all the full paths to the bams. Left the index files (.bai) in the main directories 
-```sh
-ls -1 *.bam > bams
-head bams
+# Softclipping
+Counted soft-clipped bases (from bwamem2) to make sure I wasn't losing critical data. 
+Submitted with SubCountSoftClipsA.sh
 ```
-## Run Variant calling on all bams with 
-VariantCall.pl
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=16
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=Softclip
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load perl
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl CountSoftClipsA.pl filenamehere*.sam
+```
+Which ran: CountSoftClip.pl
+```
+#!/usr/bin/perl
+#
+# counts the total number of soft-clipped bases in a sam file
+# also reports the number of reads with at least one soft-clipped base
+# and the total number of reads
+#
+# usage: CountSoftClip.pl myfile.sam
+# or redirect the output to a file like this
+# usage: CountSoftClip.pl myfile.sam > myoutput.txt
+
+## set up counters
+$tcnt = 0; ## total number of clipped bases
+$scnt = 0; ## total number of sequences with clipped bases
+$xcnt = 0; ## total number of sequences
+
+## get the file and open it
+$sam = shift(@ARGV); 
+open(IN, $sam) or die "failed to read the sam file: $sam\n";
+while(<IN>){
+        chomp;
+        unless(m/^\@/){ # skip header lines
+                @line = split(/\s+/,$_); # split line
+                ## CIGAR string is in column 6
+                @match = ($line[5] =~ m/(\d+)S/g);
+                $cnt = 0; # reset counter
+                foreach $s (@match){## count soft-clipped bases
+                        $cnt += $s;
+                }
+                $tcnt += $cnt;
+                if($cnt > 0){
+                        $scnt++; ## increment sequence counter
+                }
+                $xcnt++; ## increment total sequence counter
+        }
+}
+print "Done processing $sam\n";
+print "Found $tcnt soft-clipped bases\n";
+print "$scnt out of $xcnt sequences contained at least one soft-clipped base\n";
+close(IN);
+```
+# Read length filter
+To reduce noise in mapdamage, kept only the reads of at least 50bp with:
+SubFilterFork.sh
+```
+#!/bin/sh
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=filterfork
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /scratch/general/nfs1/u6000989/LycLotisBams/FilterFork.pl dedup_*.bam
+```
+Which ran: FilterFork.pl
+```
+#!/usr/bin/perl
+#
+# filter bam files to remove short sequences 
+#
+
+
+
+use Parallel::ForkManager;
+my $max = 48;
+my $pm = Parallel::ForkManager->new($max);
+
+
+
+foreach $bam (@ARGV){ #takes bam
+        $pm->start and next; ## fork
+        $o = "filt_$bam";
+
+        my $cmd = qq{ samtools view -h "$bam" | awk 'length(\$10) >= 50 || \$1 ~ /^@/' | samtools view -Sb - > "$o"};
+        system ('bash','-lc',$cmd);
+        $pm->finish;
+}
+$pm-> wait_all_children;
+```
+Also have FilterFork.sh from previous run. Ran mapdamage again just to check that the filtering worked. Used same scripts as up above. 
+ # Variant Calling
+ Ran variant calling on all bams, all 27 populations using bcftools (version 1.16), mpilup and call, with each of the 23 chroms run seperately (each chrom*list file holds the scaffold name for one chromosome). Note: chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside 
+chrom1.list-chrom23.list
+Submitted with:SubVariantCall.sh
+```sh
+#!/bin/sh
+#SBATCH --time=13:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VC_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
+```
+
+Which ran: VariantCall.pl
 ```pl
 #!/usr/bin/perl
 #
@@ -810,20 +317,21 @@ foreach $chrom (@ARGV){
 $pm->wait_all_children;
 ```
 output: o_lycpool_chrom*.vcf
-Submitted with:SubVariantCall.sh
-Note: chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside 
-chrom1.list-chrom23.list
 
+# Filtered the vcf file with GATK 
+version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3.
+Submitted by SubVarFiltFork2.sh:
 ```sh
 #!/bin/sh
-#SBATCH --time=13:00:00
+#SBATCH --time=72:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=24
 #SBATCH --account=usubio-kp
 #SBATCH --partition=usubio-kp
-#SBATCH --job-name=VC_call
+#SBATCH --job-name=VarFilt
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=alia.donley@usu.edu
+
 
 module load samtools
 module load bcftools
@@ -831,13 +339,9 @@ module load bcftools
 
 cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
-perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
 ```
-
-
-# Filtered the vcf file with GATK 
-version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3. Using:
-VarFiltFork2.pl
+Which ran: VarFiltFork2.pl
 ```pl
 #!/usr/bin/perl
 #
@@ -875,29 +379,10 @@ $pm->wait_all_children;
 ```
 output: fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi
 
-The above was submitted by SubVarFiltFork2.sh
-```sh
-#!/bin/sh
-#SBATCH --time=72:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=24
-#SBATCH --account=usubio-kp
-#SBATCH --partition=usubio-kp
-#SBATCH --job-name=VarFilt
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=alia.donley@usu.edu
 
-
-module load samtools
-module load bcftools
-## version 1.16
-
-cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
-
-perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
-```
 
 # Allele depth and SNP
+Allele depth and snp information was pulled from these files (fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi). This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
 Used: AD.sh
 ```sh
 #!/usr/bin/bash
@@ -915,7 +400,7 @@ do
 done
 ```
 output: ad1_fff_o_lycpool_chrom*.txt and ad2_fff_o_lycpool_chrom*.txt for each chromosome 
-This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
+
 
 I also grapped the SNP information (alleles) using:
 SNP.sh
@@ -935,485 +420,115 @@ done
 ```
 output: snps_fff_o_lycpool_chrom*.txt
 
-# POPULATION GENETIC STRUCTURE FINALLY BITCH
-Need to get this working fully: 
-PCA and FST in R on chpc
-
-getwd()
-setwd()
-
-library(data.table)
-
-a1f<-list.files(pattern="ad1_fff")
-a1f<-a1f[1:23]
-a2f<-a1f
-a2f<-gsub("ad1","ad2",a2f)
-N<-length(a1f)
-ids<-read.table("IDs.txt",header=FALSE)
-temp<-gsub("ad1_fff_lycSpecPool_chrom","",a1f)
-chrom<-gsub(".txt","",temp)
-reps<-grep(pattern="rep",ids[,1])
-
-
-
-pdf("WG_LG_PCAsV2.pdf",width=7,height=10.5)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5.5,2.5,1.5))
-cl<-1.3;ca<-1.1;cm<-1.4
-for(i in 1:N){
-	a1<-as.matrix(fread(a1f[i],header=F))
-	a2<-as.matrix(fread(a2f[i],header=F))
-	n<-a1+a2
-	p<-a2/(a1+a2) ## non-ref
-
-	p[is.na(p)]<-0.001
-	## pca
-	pc<-prcomp(t(p[,-c(reps,17)]),center=TRUE,scale=FALSE) ## drop replicates and MEN12
-	o<-summary(pc)
-	pct<-round(o$importance[2,1:3] * 100,1)
-
-	plot(pc$x[,1],pc$x[,2],pch=rep(15:20,each=7),col=ids[-c(reps,17),2],xlab=paste("PC1 (",pct[1],")"),ylab=paste("PC2 (",pct[2],")"),cex.lab=cl,cex.axis=ca)
-	title(main=paste("Chromosome ",chrom[i],sep=""),cex.main=cm)
-	text(pc$x[,1],pc$x[,2],ids[-c(reps,17),1],cex=.7)
-	xa<-min(pc$x[,1]) * .9
-	ya<-pc$x[22,2] * .9
-	#if(ya > 0){
-	#	legend(xa,ya,ids[,1],pch=rep(15:20,each=7),col=ids[,2],ncol=3,cex=.6)
-	#}
-	plot(pc$x[,1],pc$x[,3],pch=rep(15:20,each=7),col=ids[-c(reps,17),2],xlab=paste("PC1 (",pct[1],")"),ylab=paste("PC3 (",pct[3],")"),cex.lab=cl,cex.axis=ca)
-	title(main=paste("Chromosome ",chrom[i],sep=""),cex.main=cm)
-	text(pc$x[,1],pc$x[,3],ids[-c(reps,17),1],cex=.7)
-
-}
-dev.off()
-##view file in directory in chpc with xdg-open
-
-# FST
-Not fully working yet
-```r
-P<-vector("list",23)
-n<-vector("list",23)
-H<-vector("list",23)
-for(i in 1:N){
-	a1<-as.matrix(fread(a1f[i],header=F))
-	a2<-as.matrix(fread(a2f[i],header=F))
-	n[[i]]<-a1+a2
-	P[[i]]<-a2/(a1+a2) ## non-ref
-	H[[i]] <- 2 * P[[i]] * (1 - P[[i]])
-
-}
+# Post mortem damage filtering on SNPs
+Deamination in museum samples turns C->T and G->A, making them look like real snps. Removed every snp with this mutation, from GATK filtered vcfs with bcftools filter
+Submitted with HardFilterGACT.sh
 ```
-## mn P
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=LycLotis_hardfilter_GACT
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load bcftools
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+
+perl FilterGACT.pl fff_o_lycpool_chrom1.vcf
 ```
-reps<-grep(pattern="rep",ids[,1])
-mnP<-vector("list",23)
-Nas<-vector("list",23)
-for(i in 1:N){
-	mnP[[i]]<-apply(P[[i]][,-reps],1,mean,na.rm=TRUE)
-	Nas[[i]]<-apply(is.na(P[[i]][,-reps]),1,sum)
-
-}
-#retain 0.02 percent with the appropriate conditions
-keepSNPs<-vector("list",23)
-prop<-0.0002
-for(i in 1:N){
-	xx<-which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]]==0)
-	keepSNPs[[i]]<-sort(sample(xx,floor(length(mnP[[i]])*prop),replace=FALSE))
-}
-###this gave me an error code so I tried this to check the number of eligible snps:
-for(i in 1:N){
-  xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
-  cat("chrom", i, "eligible SNPs:", length(xx), "\n")
-}
-
-
-keepSNPs <- vector("list", 23)
-prop <- 0.0002
-for(i in 1:N){
-    xx <- which(mnP[[i]] > 0.01 & mnP[[i]] < 0.99 & Nas[[i]] == 0)
-    if(length(xx) > 0){ n_keep <- floor(length(xx) * prop)
-        if(n_keep > 0){keepSNPs[[i]] <- sort(sample(xx, n_keep, replace = FALSE))
-        } else {keepSNPs[[i]] <- integer(0)}
- } else {keepSNPs[[i]] <- integer(0) }
-}
+(From here on out, everything is in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT)
+Which ran: FilterGACT.pl 
 ```
-##sampled from filtered snps, not empy vectors, scale proportion based on length
+#!/usr/bin/perl
+#
+# filter GA and CT mutations from vcf files
+#
+use Parallel::ForkManager;
+my $max = 48;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $vcf (@ARGV){ ## takes uncompressed vcf files
+        $pm->start and next; ## fork
+        $vcf =~ /fff_o_lycpool_(chrom[0-9\.]+)\.vcf/ or die "failed match: $vcf\n";
+        $chrom = $1;
+        $in = "fff_o_lycpool_$chrom.vcf.gz";
+        $out = "filtered_GACT/fff_o_lycpool_$chrom.filtered.vcf";
+
+        # compress and index for bcftools
+        system "~/bin/tabix $vcf\n"; ##tabix needs bgzipped (should be .gz)
+        system "bgzip -d $vcf\n"; ## unzipe file
+
+        # filter GA and CT
+        system "bcftools filter -e '(REF=\"C\" & ALT=\"T\") || (REF=\"G\" & ALT=\"A\")' $in -o $out";
+
+        # clean up temp compressed file
+        system "rm $in $in.tbi";
+
+        $pm->finish;
+}
+
+$pm->wait_all_children;
 ```
-for(i in 1:N){
-	out<-paste("keepSNPs_chrom",chrom[i],sep="")
-	write.table(keepSNPs[[i]],file=out,row.names=FALSE,col.names=FALSE,quote=FALSE)
-}
+outputs:
+AD files: ad1&2_fff_o_lycpool_chrom.filtered.txt
+SNP info: snpinfo_fff_o_lycpool_chrom*.txt
+and beast input files:  beastfilteredsnps_fff_o_lycpool_chrom*.filtered.txt
 
-save(list=ls(),file="fst.rdatV2.1")
+Those three files should line up row for row. checked that snpinfo contains no C/T or G/A sites, and counts match ad1 row counts (656,173 snps/chrom). Across 23 chroms, this set has 10,267,366 snps. This SNP set is used for Caster, consensus alignment for BEAST, and whole genome SFS for demographic inference. 
+# Sample Subsets
+BAT49 had the lowest coverage, while TBY51 had the next lowest. Decided to cut bat49 and tby51 due to poor quality reads. Most final analyses are run on two sample sets: all 27 samples, and 25 samples )_nobat49_notby51). Tried a few without bat49, including tby51 also (nobat49). Earlier iterations that applied strict per pop coverage filters (20x-500x) and 10x min for museum samples. 
 
-##compute all of the pairwise Fst by pair and chromosome (not for each SNP)
-Npop<-27
-Nx<-(Npop*(Npop-1))/2
-fstGw<-matrix(NA,nrow=Nx,ncol=23)
-fst90<-matrix(NA,nrow=Nx,ncol=23)
-x<-1
-for(i in 1:(Npop-1)){
-	for(j in (i+1):Npop){
-		for(k in 1:23){
-			keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-			pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-			Ht<-2*pbar*(1-pbar)
-			Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-			
-			fstGw[x,k]<-mean(Ht-Hs)/mean(Ht)
-			fst<-(Ht-Hs)/Ht
-			fst90[x,k]<-quantile(fst,.9,na.rm=TRUE)
-		}
-		x<-x+1
-	}
-}
-
-##plot of mean and 90 quantile per chromsome for each pair
-mord<-c(1,12,18:23,2:11,13:17)
-pdf("FstLycSpcV2.1.pdf",width=8,height=10)
-par(mfrow=c(5,3))
-par(mar=c(4,5,2.5,.5))
-x<-1
-for(i in 1:(Npop-1)){
-	for(j in (i+1):Npop){
-		plot(fstGw[x,mord],pch=19,ylim=c(0,1),xlab="Chromosome",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=.9)
-		segments(x0=1:24,y0=fstGw[x,mord],x1=1:24,y1=fst90[x,mord])
-		title(main=paste(ids[i,1]," x ",ids[j,1],sep=""),cex.main=1.2)
-		mn<-round(mean(fstGw[x,mord]),2)
-		text(5,.9,mn)
-		x<-x+1
-	}
-}
-dev.off()
-
-##simple plot of Fst continuum, this includes replicates, just sorted median (across chroms) Fst
-plot(sort(apply(fstGw,1,median)),pch=19)
-##pretty sure the uptick at the far right is Alaskc and France
-##same thing just Z
-plot(sort(fstGw[,24]),pch=19) ## very similar and against each other
-plot(apply(fstGw,1,median),fstGw[,24],pch=19,xlab="Genome median",ylab="Z chrom")
-abline(a=0,b=1)
-mostly correlated, Z higher
-
-### window examples
-populations are from the ID.txt file and designated by i<-1 and j<-27
-
-##ABM20 and YG20
-
-mord<-c(1,12,18:23,2:11,13:17)
-pdf("FstWinsABM20_YG20V2.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-1;j<-27
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-##MEN and SBW18
-pdf("FstWinsMEN12_SBW18.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-16;j<-19
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-```
-Lotis and SHC11
-```
-pdf("FstWinsLOTIS_SHC11V2.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-14;j<-20
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-########### Corrected code and the errors: Ht and Hs are already computed and have 
-###length =length(keep). But Ht[keep] and Hs[keep] was indexing a short vector and 
-##producing NAs. Here is the corrected code (I think)
-
-pdf("FstWinsLOTIS_SHC11V2.pdf", width=8, height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i <- 14; j <- 20
-for(k in mord){
-  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-  Nw <- floor(length(keep)/200)
-  if(Nw < 1) next
-  win <- rep(1:Nw, each=200)
-  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
-  Ht   <- 2*pbar*(1-pbar)
-  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
-  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
-  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
-  fst <- Num / Den
-  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
-  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
-}
-dev.off()
-Doing the same for my broken ones (will be labelled V2)
-Lotis and YG20
-
-
-pdf("FstWinsLOTIS_YG20V2.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-14;j<-27
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-```
-TBY51 and TBY11
-```r
-pdf("FstWinsTBY51_TBY11.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-24;j<-23
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-```
-# Version 2)- forgot to label as V2 in chpc
-```
-pdf("FstWinsTBY51_TBY11.pdf", width=8, height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i <- 24; j <- 23
-for(k in mord){
-  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-  Nw <- floor(length(keep)/200)
-  if(Nw < 1) next
-  win <- rep(1:Nw, each=200)
-  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
-  Ht   <- 2*pbar*(1-pbar)
-  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
-  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
-  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
-  fst <- Num / Den
-  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
-  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
-}
-dev.off()
-BAT49 and BAT20
-
-pdf("FstWinsBAT49_BAT20.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-3;j<-2
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-## V2
-pdf("FstWinsBAT49_BAT20V2.pdf", width=8, height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i <- 2; j <- 2
-for(k in mord){
-  keep <- which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-  Nw <- floor(length(keep)/200)
-  if(Nw < 1) next
-  win <- rep(1:Nw, each=200)
-  pbar <- (P[[k]][keep,i] + P[[k]][keep,j]) / 2
-  Ht   <- 2*pbar*(1-pbar)
-  Hs   <- P[[k]][keep,i]*(1-P[[k]][keep,i]) + P[[k]][keep,j]*(1-P[[k]][keep,j])
-  Num <- tapply(Ht[1:(Nw*200)] - Hs[1:(Nw*200)], win, mean, na.rm=TRUE)
-  Den <- tapply(Ht[1:(Nw*200)], win, mean, na.rm=TRUE)
-  fst <- Num / Den
-  plot(fst, xlab="SNP window", ylab=expression(F[ST]), cex.lab=1.3, cex.axis=1, ylim=c(0,1), type="l")
-  title(main=paste("LG ", chrom[k], sep=""), cex.main=1.3)
-}
-dev.off()
-
-###GNP17 and HNV17
-pdf("FstWinsGNP17_HNV17.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-11;j<-13
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-####GNP17 and Lotis
-
-
-pdf("FstWinsGNP17_LOTIS.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-11;j<-14
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-
-
-
-
-
-pdf("FstWinsMR20_CP19.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-17;j<-9
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-
-
-
-
-pdf("FstWinsBCR17_BTB17.pdf",width=8,height=9)
-par(mfrow=c(3,2))
-par(mar=c(4.5,5,2.5,.5))
-i<-4;j<-7
-for(k in mord){
-	keep<-which(n[[k]][,i] > 10 & n[[k]][,j] > 10)
-	Nw<-floor(length(keep)/200)
-	win<-rep(1:Nw,each=200)
-	pbar<-(P[[k]][keep,i]+P[[k]][keep,j])/2
-	Ht<-2*pbar*(1-pbar)
-	Hs<-P[[k]][keep,i] * (1-P[[k]][keep,i]) + P[[k]][keep,j] * (1-P[[k]][keep,j])
-	Num<-tapply(X=Ht[keep][1:(Nw*200)]-Hs[keep][1:(Nw*200)],INDEX=win,mean)
-	Den<-tapply(X=Ht[keep][1:(Nw*200)],INDEX=win,mean)
-	plot(Num/Den,xlab="SNP window",ylab=expression(F[ST]),cex.lab=1.3,cex.axis=1,ylim=c(0,1),type='l')
-	title(main=paste("LG ",chrom[k],sep=""),cex.main=1.3)
-}
-dev.off()
-```
-
-
-
-## Compute the invariant sites
-## NOT WORKING YET
-
-ComputeInvariant.R
-determines the number of invariant bases to add to the beast XML file. Reads in base counts (A, C, G, T) by scaffold from the genome 
+# Compute the invariant sites
+Invariant site counts are used in the beast .xml file. Reads in base counts (A, C, G, T) by scaffold from the genome. For now, using Zach's invariant site counts. 
+Calculate with: ComputeInvariant.R 
 get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
 cnts<-read.table("baseCounts.txt",header=FALSE)
-```sh
-## get big scaffolds, top 23
-totals<-apply(cnts[,-1],1,sum)
-rev(sort(totals))[1:23]
-# [1] 31424484 26391115 25798047 25285067 25079126 25067872 22431864 21864934
-# [9] 21544644 21226148 20022703 19681008 18787320 18503979 18445203 17279337
-#[17] 17086116 16627315 16626411 16602730 15714686 13063727  9211676
+or run in R
+```
+cnts <- read.table("baseCounts_filteredV2_noBAT49.txt", header=FALSE)
 
-chr<-which(totals >= 9211676)
+totals <- apply(cnts[,-1], 1, sum)
+chr <- which(totals >= 9211676)
+bcnt <- apply(cnts[chr,-1], 2, sum)
 
-## get total A, C, G, T
-bcnt<-apply(cnts[chr,-1],2,sum)
+## noBAT49 proportion (6000/632430)
+#prop <- 0.00949
+prop <- 5989 / 412766
+sbcnt <- floor(bcnt * prop)
 
-## multiply by 0.00035 to match subsetting for SNP data
-prop<-0.00035 ##Change this depending on what was computed
-sbcnt<-floor(bcnt*prop)
-
-## get SNP bases
-## perl countBases.pl > snpCounts.txt
-snps<-read.table("snpCounts.txt",header=FALSE)
-## average across Lycaeides
-snpCnts<-floor(apply(snps[-13,-1],2,mean))
-invar<-sbcnt-snpCnts
+snps <- read.table("snpCounts_noBAT49_filteredV2.txt", header=FALSE)
+snpCnts <- floor(apply(snps[,-1], 2, mean))
+invar <- sbcnt - snpCnts
 invar
+
 #   A    C    G    T 
 #50190 28322 28284 50114
 These are zachs numbers
-
 ```
 
+# Population Genetic Structure
+We summarized population structrue from allele frequencies (ad2/(ad1+ad2)) per chromosome. Outgroup MEN is exclused from PCAs and poops are matched by name rather than column number
+	-Genotype PCAs per chrom and pariwise F<sub>ST</sub> by pop pair and chrom, plus windowed F<sub>ST</sub> for focal pairs. In [pcaFST.R](pcaFST.R), [pcaFST2.R](pcaFST2.R), [pcaFST3.R](pcaFST3.R). Fst_filtered.R is final F<sub>ST</sub> script. 
+	- PCoA of F<sub>ST</sub> matricies and combined map+PCA figure for autosomes vs Z: [mapPCA.R](mapPCA.R)
 
+Lotis has elevated F<sub>ST</sub>. Expected for small, low coverage museum pool data. 
 
+# Time Calibrated phylogenetic tree
+Estimated time-calibrated tree with BEAST (version 2.7.8) and coupled MCMC package. BEAST cannot handle whole genome data sets, so we need to subset the data. 
+	- Consensus alignments: Made consensus sequence for each population by taking the most common allele at each SNP from AD files. Inserted N where fewer than 5 reads were observed. Using the GA/CT filtered depth files, submitted [mkMaxFasta.R](mkMaxFasta.R) which writes gact_max_chrom{1..23}.fasta. This is the consensus. 
+Ran with:
+```
+Rscript mkMaxFasta.R "^ad1_fff_o_lycpool_chrom[0-9.]+\\.filtered\\.txt$" gact_max_chrom IDs_vcf.txt
+```
+(all samples, ~10 million snps)
+output: gact_max_chrom
 
-
+# BEAST - Time Calibrated Phylogenetic Tree 
 
 # Input files for BEAST 
 Generated with:
@@ -1581,8 +696,8 @@ output: lyc_genomemax.fasta and .nexx
 ml beast
 beauti
 ```
-used lyc_genomemax.nex as input for beauti (import alignment from partitions)- run inclding BAT49 and TBY51
-
+used lyc_genomemax.nex as input for beauti (import alignment from partitions)- run inclding BAT49 and TBY51. Also ran not including those two musuem samples. Here are some parameters for the model in beauti:
+```
 didn't use tip dates
 Site model- 
 	gamma. Gamma category count: 4. Shape= 1
@@ -1622,7 +737,7 @@ chainlength: 500000000
 Store every 25000
 Pre burnin 400
 Number initialization attempts: 800
-
+```
 last run saved as lyc_wgs_max_ranlc4.xml- with both BAT49 and TBY51
 Note: if i were to do this run again, need to update the means and sigmas for the priors on lyc and lycall. 
 Also, in the .xml file, need to put the invariant site counts. For now I'm using Zachs until I figure out my own:  
