@@ -1,0 +1,613 @@
+#check report numbers here
+
+
+
+## index genome with bwa-mem2
+```sh
+/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 index /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta
+```
+We set up the alignment using the submission script
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert-kp
+#SBATCH --partition=gompert-kp
+#SBATCH --job-name=bwa-mem2
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
+
+module load samtools
+##Version: 1.16 (using htslib 1.16)
+
+cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignments
+
+perl BwaMemFork.pl ../F22FTSUSAT0310-01_LYCgpswR/soapnuke/clean/*/*1.fq.gz 
+
+```
+
+
+Which runs
+```perl
+#!/usr/bin/perl
+#
+# alignment with bwa mem 
+#
+
+
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
+my $genome = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+FILES:
+foreach $fq1 (@ARGV){
+	$pm->start and next FILES; ## fork
+	$fq2 = $fq1;
+	$fq2 =~ s/_1\.fq\.gz/_2.fq.gz/ or die "failed substitution for $fq1\n";
+        $fq1 =~ m/clean\/([A-Za-z0-9]+)/ or die "failed to match id $fq1\n";
+	$ind = $1;
+	$fq1 =~ m/([A-Za-z_\-0-9]+)_1\.fq\.gz$/ or die "failed match for file $fq1\n";
+	$file = $1;
+        system "/uufs/chpc.utah.edu/common/home/u6000989/source/bwa-mem2-2.0pre2_x64-linux/bwa-mem2 mem -t 1 -k 19 -r 1.5 -R \'\@RG\\tID:Lyc-"."$ind\\tLB:Lyc-"."$ind\\tSM:Lyc-"."$ind"."\' $genome $fq1 $fq2 | samtools sort -@ 2 -O BAM -o $ind"."_$file.bam - && samtools index -@ 2 $ind"."_$file.bam\n";
+
+	$pm->finish;
+}
+```
+## Zach aligned ^^^
+All downstream analysis can be found in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+We used samtools (version ##) to sort and index the alignments. Following this, the .bam files for each population were merged using samtools (version ##). This was submitted using the shell script:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=merge
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
+
+module load samtools
+##Version: 1.16 (using htslib 1.16)
+
+cd /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Alignment
+
+perl ../Scripts/MergeFork.pl
+``` 
+Which runs MergeFork.pl:
+```pl
+#!/usr/bin/perl
+#
+# merge alignments for each population sample with samtools version XX 
+#
+
+
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
+
+open(IDS,"pids.txt");
+while(<IDS>){
+	chomp;
+	push(@IDs,$_);
+}
+close(IDS);
+
+FILES:
+foreach $id (@IDs){
+	$pm->start and next FILES; ## fork
+        system "samtools merge -c -p -o Merged/$id.bam $id"."_*.bam\n";
+	system "samtools index -@ 2 Merged/$id.bam\n";
+	$pm->finish;
+}
+
+$pm->wait_all_children;
+```
+# Removing PCR Duplicates
+Zach also did this. We used samtools (version 1.16) to remove PCR duplicates following the standard protocol.  I am using the default option (same as -m t) to measure positions based on template start/end. And I am using -r to not just mark but remove duplicates. The submission script is:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=dedup
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=zach.gompert@usu.edu
+
+module load samtools
+##Version: 1.16 (using htslib 1.16)
+
+
+cd /scratch/general/nfs1/dedup
+
+perl /uufs/chpc.utah.edu/common/home/gompert-group2/data/Lycaeides_poolSeq/Scripts/RemoveDupsFork.pl *bam
+```
+Which runs
+```pl
+#!/usr/bin/perl
+#
+# PCR duplicate removal with samtools
+#
+
+
+use Parallel::ForkManager;
+my $max = 40;
+my $pm = Parallel::ForkManager->new($max);
+
+FILES:
+foreach $bam (@ARGV){
+	$pm->start and next FILES; ## fork
+	$bam =~ m/^([A-Za-z0-9]+)/ or die "failed to match $bam\n";
+	$base = $1;
+	system "samtools collate -o co_$base.bam $bam /scratch/general/nfs1/dedup/t$bam\n";
+	system "samtools fixmate -m co_$base.bam fix_$base.bam\n";
+	system "samtools sort -o sort_$base.bam fix_$base.bam\n";
+	## using default definition of dups
+	## measure positions based on template start/end (default). = -m t
+	system "markdup -T /scratch/general/nfs1/dedup -r sort_$base.bam dedup_$base.bam\n";
+	$pm->finish;
+}
+
+$pm->wait_all_children;
+```
+# Filter ends 
+Filter (ct and ga) before mapdamage. Tried doing it in perl, gave up and just ran interactively with 
+FilterFork.sh
+```sh
+#!/bin/sh
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=gompert #SBATCH --partition=kingspeak
+#SBATCH --job-name=filter
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+for bam in *.bam; do base=$(basename "$bam" .bam) out="${base}.filtered${minlen}.bam"
+samtools view -h "$bam"
+| awk -v m="$minlen" '($1 ~ /^@/) || (length($10) >= 50)'
+| samtools view -b -o "$out" -
+
+samtools index "$out" done
+```
+Output: 
+
+
+
+
+
+
+
+# MapDamage
+We ran all aligned and indexed samples through mapdamage2 to assess if the aDNA was contaminated and if it carried typical aDNA damage patterns. The data needed to be filtered before being run through mapdamage to eliminate noise. We did one run with all bases and one run where we filtered out the softclipped bases. 
+	Soft clipped: Counted soft-slipped bases per sample with [CountSoftClip.pl](CountSoftClip.pl) and 		CountSoftClipsA.pl? submitted with SubCountSoftClipsA.sh
+	Read-length filter: to reduce noise for mapDamage2 I kept only reads of at least 50bp with [FilterFork.pl](FilterFork.pl), submitted with [SubFilterFork.sh](SubFilterFork.sh). 
+
+Notes on this step are in notes/mapDamage2_notes.  Becuase post-mortem deamination in musuem DNA creates C->T and G->A changes, all final analyses use a hard filter that removes those substitutions. 
+
+To do this we used SubMapDamFork.sh:
+```
+#!/bin/sh
+#SBATCH --time=50:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=25
+#SBATCH --account=gompert-kp
+#SBATCH --partition=gompert-kp
+#SBATCH --job-name=lotismapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load perl
+module load samtools
+module load bwa
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl MapDamFork.pl *bam
+```
+Which runs MapDamFork.pl
+```
+#!/usr/bin/perl
+#
+# run mapdamage
+#
+
+
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filteredMapDamage";
+        print "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
+        system "mapDamage -i $file -r /uufs/chpc.utah.edu/common/home/gompert-group3/data/butterflygenomes/Lmelissa/Lmel_dovetailPacBio_genome.fasta.masked -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+```
+
+
+# Variant Calling
+
+Variants were called with bcftools (version 1.16). We did not perform INDEL realignment.Called variants for all 27 samples jointly following LycAdmixMosaic. Each of 23 chromosomes run seperately (each chrom*list file holds the scaffold name for one chrom. 
+
+The following submission script SubVariantCall.sh was submitted:
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=bcf_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
+```
+FIX TO MY PATH
+
+which runs VariantCall.pl:
+```pl
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+foreach $chrom (@ARGV){
+	$pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+	$out = "o_lycpool_chrom$1";
+	system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
+	$pm->finish;
+
+}
+
+$pm->wait_all_children;
+```
+Each chromosome scaffold is being processes seperately as a chrom*list
+# Post-mortem damage filtering
+
+We filtered the .vcf file with GATK (version ##), keeping only those (bases or snps)? with mapping quality>30, depth>1350, and bias scores less than +/-3. This was done with [VarFiltFork2.pl](VarFiltFork2.pl)
+```pl
+#!/usr/bin/perl
+#
+# filter vcf with GATK and tabix 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+
+
+my $ref = "/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+my $gatk = "/uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar"; 
+
+
+foreach $vcf (@ARGV){
+        $pm->start and next; ## fork
+        $in = $vcf; ##don't need to gunzip here..?
+        $in =~ s/\.gz//; ## drops .gz from the filename
+        $o = "fff_$vcf"; ## outfile with name fff_xxxx.vcf.gz ##if not zipped, switch variable to $in      
+
+        system "~/bin/tabix $vcf\n"; ##tabix needs bgzipped (should be .gz)
+        system "bgzip -d $vcf\n"; ## unzipe file- correct
+        
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar IndexFeatureFile -I $in\n";
+        system "java -jar /uufs/chpc.utah.edu/sys/installdir/gatk/gatk-4.1.4.1/gatk-package-4.1.4.1-local.jar VariantFiltration -R $ref -V $in -O $o --filter-name \"bqbz\" --filter-expression \"BQBZ > 3.0 || BQBZ < -3.0\" --filter-name \"mqbz\" --filter-expression \"MQBZ > 3.0 || MQBZ < -3.0\" --filter-name \"rpbz\" --filter-expression \"RPBZ > 3.0 || RPBZ < -3.0\" --filter-name \"depth\" --filter-expression \"DP < 1350\" --filter-name \"mapping\" --filter-expression \"MQ < 30\" --verbosity ERROR\n";
+        system "bgzip -d $o\n";
+
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+```
+
+Which was subitted using SubVarFiltFork2.sh
+```
+#!/bin/sh
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VarFilt
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+
+module load samtools
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
+```
+# AD files and SNP files
+The following analyses are in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+Allele depths were extracted from the filtered .vcf files. INDELS and multialleleic data were dropped here too. I tried many iterations of this. Tried all 27 samples, no bat49, no tby51, no bat and tby, and the corrected filtered set of no tby and bat. 
+
+[AD.sh](AD.sh)
+```sh
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+```
+output: ad1_fff_o_lycpool_chrom*.filtered.txt AND ad1_fff_o_lycpool_chrom2_noBAT49_noTBY51_filtered.txt
+
+We also grapped the SNP information with [SNP.sh](SNP.sh)
+```sh
+#!/usr/bin/bash
+#
+# extract alleles from biallelic SNPs that passed filtering
+#
+
+for f in fff*vcf
+do
+	echo "Processing $f"
+	out="$(echo $f | sed -e 's/vcf/txt/')"
+	echo "Output is snps_$out"
+	grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | cut -f 4,5 > beastfilteredsnps_$out 
+done
+```
+
+output: snpinfo_fff_o_lycpool_chrom*.txt AND snpinfo_fff_o_lycpool_chrom1_noBAT49_noTBY51_filtered.txt
+
+# Population Genetic Structure
+
+We summarized population structrue from allele frequencies (ad2/(ad1+ad2)) per chromosome. Outgroup MEN is exclused from PCAs and poops are matched by name rather than column number
+	-Genotype PCAs per chrom and pariwise F<sub>ST</sub> by pop pair and chrom, plus windowed F<sub>ST</sub> for focal pairs. In [pcaFST.R](pcaFST.R), [pcaFST2.R](pcaFST2.R), [pcaFST3.R](pcaFST3.R). Fst_filtered.R is final F<sub>ST</sub> script. 
+	- PCoA of F<sub>ST</sub> matricies and combined map+PCA figure for autosomes vs Z: [mapPCA.R](mapPCA.R)
+
+Lotis has elevated F<sub>ST</sub>. Expected for small, low coverage museum pool data. 
+
+# Time Calibrated phylogenetic tree
+Estimated time-calibrated tree with BEAST (version 2.7.8) and coupled MCMC package. BEAST cannot handle whole genome data sets, so we need to subset the data. 
+	- Consensus alignments: Made consensus sequence for each population by taking the most common allele at each SNP from AD files. Inserted N where fewer than 5 reads were observed. Using the GA/CT filtered depth files, submitted [mkMaxFasta.R](mkMaxFasta.R) which writes gact_max_chrom{1..23}.fasta. Ran with:
+```
+Rscript mkMaxFasta.R "^ad1_fff_o_lycpool_chrom[0-9.]+\\.filtered\\.txt$" gact_max_chrom IDs_vcf.txt
+```
+(all samples, ~10 million snps)
+
+# This is down to where I thoughtfully went through it all. Everything below is just formatted. 
+
+
+
+
+
+
+
+# Counting Softclipping for real dataset
+```sh
+for f in max_chromV2ad1_beastfiltered_fff_o_lycpool_chrom*.fasta; do
+    chrom=$(echo $f | grep -oP '\d+(?=\.fasta)')
+    nchar=$(grep -v ">" $f | head -1 | tr -d '\n' | wc -c)
+    size=$(du -sh $f | cut -f1)
+    echo -e "chrom${chrom}\t${nchar}\t${size}"
+done | sort -t'm' -k2 -n
+```
+
+# Mapdamage on Real Dataset 
+```pl
+##MapDamFork.pl
+#!/usr/bin/perl
+#run mapdamage
+
+use Parallel::ForkManager;
+my $max = 30;
+my $pm = Parallel::ForkManager->new($max);
+
+foreach $file (@ARGV){
+        $pm->start and next; ## fork
+        $file =~ m/_([a-zA-Z0-9]+)\.bam/;
+        $id = $1;
+        $out = "output_$id"."_filteredMapDamage";
+        print "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        system "mapDamage -i $file -r ~/../gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta -d $out\n";
+        $pm->finish;
+}
+$pm->wait_all_children;
+```
+
+Run by SubMapDamFork.sh
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=25
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=xercesmapdamagefiltered
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load perl
+module load samtools
+module load bwa
+
+cd /scratch/general/nfs1/u6000989/LycLotis/AllBams
+
+perl MapDamFork.pl *bam
+```
+
+RAN THROUGH ALL XERCES ANALYSIS FOR SOFTCLIPPING TO INFORM THIS PROJECT. XERCES DATA TURNED OUT TO BE SHIT, BUT THROUGH MAP DAMAGE WE FOUND THAT THE LOTIS AND OTHER ADNA DATA FROM THIS SET LOOKED GOOD. ZACH HAD ALREADY ALIGNED, VARIANT CALLED, ETC (EVERYTHING UP TO VC FOR THIS ACTUAL DATA SET). I'M TAKING OVER FOR EVERYTHING THROUGH VARIANT CALLING. BASICALLY MAKING THE TREE AND PUTTING THE ANCIENT SAMPLES INTO AN ALRADY EXISTING TREE IN AN UPCOMING PAPER. 
+
+
+USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+# VARIANT CALLING
+USING THE FRAMEWORK LAYED OUT IN ZACH'S LYC-ADMIXTURE MOZAIC GITHUB
+DIDN'T HAVE THE INDEXED BAI FILES, NEEDED TO INDEX USING THIS SCRIPT: 
+
+Index.sh
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=Indexing
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+
+for bam in *.bam
+do 
+echo "Indexing $bam..."
+samtools index "$bam"
+done
+```
+# Variant calling
+Ran with VariantCall.sh
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VC_call
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VariantCall.pl chrom*list
+
+```
+
+Which ran: VariantCall.pl
+```pl
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacBio_genome.fasta";
+
+foreach $chrom (@ARGV){
+        $pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+        $out = "o_lycpool_chrom$1";
+        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD -q 20 -Q 30 -I -Ou | bcftools call -v -c -p 0.01 -Ov -o $out"."vcf\n";
+        $pm->finish;
+
+}
+
+$pm->wait_all_children;
+```
+output: o_lycpool_chrom#.vcf
+
+# Filtering with GATK
+Ran: VarFiltFork2.sh
+```sh
+#!/bin/sh
+#SBATCH --time=240:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=24
+#SBATCH --account=usubio-kp
+#SBATCH --partition=usubio-kp
+#SBATCH --job-name=VarFilt
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=alia.donley@usu.edu
+
+module load samtools
+## version 1.16
+module load bcftools
+## version 1.16
+
+cd /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams
+
+perl /uufs/chpc.utah.edu/common/home/u6047808/ZLycLotis/AllBams/VarFiltFork2.pl
+```
+
+Which Runs: VarFiltFork2.pl
+```pl
+#!/usr/bin/perl
+#
+# samtools/bcftools variant calling by LG 
+#
+
+use Parallel::ForkManager;
+my $max = 26;
+my $pm = Parallel::ForkManager->new($max);
+
+my $genome ="/uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/Lmel_dovetailPacB$
+
+foreach $chrom (@ARGV){
+        $pm->start and next; ## fork
+        $chrom =~ /chrom([0-9\.]+)/ or die "failed here: $chrom\n";
+        $out = "o_lycpool_chrom$1";
+        system "bcftools mpileup -b bams -d 1000 -f $genome -R $chrom -a FORMAT/DP,FORMAT/AD $
+        $pm->finish;
+
+}
+$pm->wait_all_children;
+```
+# Allele depth files
+Next, extract allele depths from filtered vcf files. Also drops indels and multiallelic data. This gives ad1 and ad2. Ran with: AD.sh
+
+```sh
+#!/usr/bin/bash
+#
+# extract allele depth AD from biallelic SNPs that passed filtering 
+#
+
+for f in fff*vcf
+do
+        echo "Processing $f"
+        out="$(echo $f | sed -e 's/vcf/txt/')"
+        echo "Output is ad1_$out"
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\1/g' > ad1_$out   
+        grep ^Sc $f | grep PASS | grep -v [ATCG],[ATCG] | perl -p -i -e 's/^.+AD\s+//' | perl -p -i -e 's/\S+:(\d+),(\d+)/\2/g' > ad2_$out
+done
+```
