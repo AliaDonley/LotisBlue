@@ -879,119 +879,129 @@ for(i in 1:23){
 
 dev.off()
 ```
+TO LOOK AT THE BEAST TREE: 
+java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
 should have output pdf's here
 
 # Window based analyses with cASTER
 
-im afraid hahahahahaaaaa
 
-Now I have no idea what's going on I need somebody to hold my hand
-
-## running anumber of sliding window analyses with CASTER. 
-Zach says: For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 kb windows, then average over sets of 5 windows to plot 
-normalized (sum to 1) scores across the genome. I have one sub-directory for each set of taxa. The basic commands look like this (executed from 
-within the sub-directory with a mapping file, Sub* file and symbolic links to the sub_max* alignments)######
-
-What did I do? Ran WinSubAlign.pl
-```pl
-#!/usr/bin/perl
-#
-# keep only a subset of taxa
-#
-## subfile contains taxa to keep
-$subfile = shift(@ARGV);
-open(IN, $subfile) or die;
-while(<IN>){
-        chomp;
-        $keep{$_} = 1;
-}
-close(IN);
-$prefix = $subfile;
-$prefix =~ s/\.txt// or die "faield at $prefix\n";
-foreach $fa (@ARGV){
-        open(IN, $fa) or die "failed to read $fa\n";
-        open(OUT, "> $prefix"."_$fa") or die "failed to write for $fa\n";
-        while(<IN>){
-                chomp;
-                if(m/^>(\S+)/){
-                        $id = $1;
-                        if(defined $keep{$id}){
-                                print OUT "$_\n";
-                                $a = <IN>;
-                                print OUT $a;
-                        }
-                }
-        }
-        close(IN);
-        close(OUT);
-}
+## Sliding window analyses with CASTER. 
+For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 snps windows, so each plotted bar is a 50K snp block. Windows to plot 
+normalized (sum to 1) scores across the genome. I have one sub-directory for each set of taxa (winAxBxCxD). The basic commands look like this (executed from 
+within the sub-directory with a mapping file, Sub* file and symbolic links to the sub_max* alignments)
+Each quartest is one command, run from Caster/ directory that holds symbolic links to gact_max_chrom*.fasta alignments (whole genome). 
+Each quartet was run with run_quartest.slurm:
 ```
-AND
-RunWindows.pl:
+#!/bin/bash
+#SBATCH --job-name=casterwin
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=16G
+#SBATCH --time=12:00:00
+#SBATCH --output=casterwin_%j.out
+#SBATCH --error=casterwin_%j.err
+# Usage: sbatch run_quartet.slurm A B C OUTGROUP
+set -euo pipefail
+
+CASTER_DIR=/uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT/Caster
+WINBIN=/uufs/chpc.utah.edu/common/home/u6047808/bin/wins/MASTERWORK/bin/slidingwindow
+ALN_PREFIX=gact_max_chrom
+
+P1=$1; P2=$2; P3=$3; Po=$4
+tag() { echo "${1#Lyc-}"; }
+Q="$(tag $P1)x$(tag $P2)x$(tag $P3)"
+
+cd "$CASTER_DIR"
+for s in WinSubAlign.pl RunWindows.pl; do
+  [ -f "$s" ] || { echo "$s not found" >&2; exit 1; }
+done
+mkdir -p "win${Q}" && cd "win${Q}"
+
+printf "%s\n%s\n%s\n%s\n" "$P1" "$P2" "$P3" "$Po" > "Sub${Q}.txt"
+printf "%s\tA\n%s\tB\n%s\tC\n%s\tOutgroup\n" "$P1" "$P2" "$P3" "$Po" > "Mapping${Q}.txt"
+for i in $(seq 1 23); do ln -sf "../${ALN_PREFIX}${i}.fasta" .; done
+
+nh=$(grep -c '^>' "${ALN_PREFIX}1.fasta"); nl=$(grep -vc '^>' "${ALN_PREFIX}1.fasta")
+[ "$nh" -eq "$nl" ] || { echo "FASTA is multi-line" >&2; exit 1; }
+
+perl ../WinSubAlign.pl "Sub${Q}.txt" $(for i in $(seq 1 23); do echo ${ALN_PREFIX}${i}.fasta; done)
+n=$(grep -c '^>' "Sub${Q}_${ALN_PREFIX}1.fasta")
+[ "$n" -eq 4 ] || { echo "Only $n of 4 taxa found; check names" >&2; exit 1; }
+
+perl ../RunWindows.pl "$Q" "$WINBIN" "$ALN_PREFIX"
+echo "Done: ${CASTER_DIR}/win${Q}"
+```
+Which ran RunWindows.pl
 ```pl
 #!/usr/bin/perl
-#
+# Zach's RunWindows.pl with quartet tag, binary and prefix as arguments
+($q, $bin, $prefix) = @ARGV;
+die "usage: RunWindows.pl QUARTET_TAG WINDOW_BINARY ALN_PREFIX\n" unless defined $prefix;
+die "window binary not found: $bin\n" unless -x $bin;
 for $i (1..23){
-        system "../wins/MASTERWORK/bin/slidingwindow SubABMxSINxTBY_sub_max_chrom$i.fasta MappingABMxSINxTBY.txt > winout$i.tsv\n";
+$aln = "Sub${q}_${prefix}$i.fasta";
+die "missing $aln\n" unless -e $aln;
+system("$bin $aln Mapping$q.txt > winout$i.tsv") == 0
+or die "window run failed on chromosome $i\n";
 }
 ```
-The results were summarized with 
-Win.Test.R
+These were ran with commands:
+```bash
+sbatch run_quartet.slurm Lyc-LOTIS Lyc-SHC11 Lyc-MR20 Lyc-MEN12 <--- example of a quartet used
+cd winLOTISxSHC11xMR20 <- the output directory you need to run WinTest.R from
+Rscript ../WinTest.R
+```
+WinTest.R:
+```r
+## Zach's WinTest.R logic: average 5 consecutive windows, normalize the
+## three topology scores to sum to 1, genome-wide means, stacked barplot.
+## Run from inside a win<P1>x<P2>x<P3> folder:  Rscript ../WinPlot.R
+args <- commandArgs(TRUE)
+q    <- if (length(args)) args[1] else sub("^win", "", basename(getwd()))
+tax  <- strsplit(q, "x")[[1]]
+nwin <- 1
+cols <- c("A+B", "A+C", "B+C")
+labs <- c(paste0(tax[1], "+", tax[2]), paste0(tax[1], "+", tax[3]), paste0(tax[2], "+", tax[3]))
 
-```R
-## 10 kb windows HJxVExSIN
-# A = HJ, B = VE, C = SIN
-# intraspecific only? 
-
-scAB<-vector("list",23)
-scBC<-vector("list",23)
-scAC<-vector("list",23)
-for(ch in 1:23){
-	inf<-paste("winout",ch,".tsv",sep="")
-	dat<-read.table(inf,header=TRUE)
-	L<-dim(dat)[1]
-	NL<-L-5
-	ab<-rep(NA,NL)
-	ac<-rep(NA,NL)
-	bc<-rep(NA,NL)
-	for(i in 1:NL){
-		ab[i]<-mean(dat$A.B[i:(i+4)])
-		bc[i]<-mean(dat$B.C[i:(i+4)])
-		ac[i]<-mean(dat$A.C[i:(i+4)])
-		sc<-c(ab[i],bc[i],ac[i])
-		ssc<-sum(sc)
-		ab[i]<-ab[i]/ssc
-		bc[i]<-bc[i]/ssc
-		ac[i]<-ac[i]/ssc
-	}
-	scAB[[ch]]<-ab
-	scAC[[ch]]<-ac
-	scBC[[ch]]<-bc
+res <- list(); nneg <- 0
+for (ch in 1:23) {
+  d <- read.table(paste0("winout", ch, ".tsv"), header = TRUE, check.names = FALSE)
+  s <- as.matrix(d[, cols])
+  g <- ceiling(seq_len(nrow(s)) / nwin)
+  avg <- rowsum(s, g) / as.vector(table(g))
+  nneg <- nneg + sum(avg < 0)
+  avg[avg < 0] <- 0
+  p <- avg / rowSums(avg)
+  res[[ch]] <- data.frame(chrom = ch, block = seq_len(nrow(p)),
+                          start_col = as.vector(tapply(d$pos, g, min)),
+                          p, check.names = FALSE)
 }
+all <- do.call(rbind, res)
+all <- all[complete.cases(all), ]
+cat("negative averaged scores set to 0:", nneg, "\n")
+write.table(all, paste0("WinSummary_", q, ".tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
 
-mat<-rbind(unlist(scAB),unlist(scAC),unlist(scBC))
+gw <- colMeans(all[, cols]); names(gw) <- labs
+cat("genome-wide mean proportions:\n"); print(round(gw, 3))
 
-apply(mat,1,mean)
-#[1] 0.6354200 0.2473369 0.1172431
-# looks like HJ x SIN more than VE x SIN? could be real?
-
-
-szs<-unlist(lapply(scAB,length))
-ch<-rep(c(1:23),szs)
-
-pdf("winHJxVExSIN.pdf",width=9,height=4)
-par(mar=c(5,5,1,1))
-xx<-barplot(mat,border=NA,axes=FALSE,xlab="Chromosome",ylab="Score")
-mids<-tapply(X=xx,INDEX=ch,mean)
-bnds<-tapply(X=xx,INDEX=ch,max)[-23]
-abline(v=bnds)
-axis(2)
-axis(1,mids,c(1:22,"Z"))
+pdf(paste0("WinPlot_", q, ".pdf"), width = 14, height = 4)
+newchr <- c(TRUE, diff(all$chrom) != 0)
+bp <- barplot(t(as.matrix(all[, cols])), space = ifelse(newchr, 3, 0), border = NA, axisnames = FALSE,
+              col = c("#1b9e77", "#d95f02", "#7570b3"), ylab = "Proportion",
+              xlab = "Chromosome", axes = TRUE)
+mids <- tapply(bp, all$chrom, mean)
+axis(1, at = mids, labels = names(mids), tick = FALSE, cex.axis = 0.8)
+legend("topright", inset = c(0, -0.18), xpd = TRUE, horiz = TRUE, bty = "n",
+       fill = c("#1b9e77", "#d95f02", "#7570b3"), legend = labs, cex = 0.8)
 dev.off()
+cat("wrote WinPlot_", q, ".pdf and WinSummary_", q, ".tsv\n", sep = "")
 ```
 
-TO LOOK AT THE BEAST TREE: 
-java -jar ~/../gompert-group5/projects/LycAdmix/Beast/FigTree_v1.4.4/lib/figtree.jar Combined_consensusranlc4.trees OR TESTZ or Combinedtreesfinal.trees
+## Scripts I used to check bat and tby
+
 # Checking coverage for TBY, BAT, and LOTIS with ad1 and ad2 files 
 ```r
 R
@@ -1071,7 +1081,7 @@ nrow(snps_filtered_check)
 
 head(fread("beastfilteredad1_fff_o_lycpool_chrom.txt", header=FALSE))
 ```
-check how many SNPS total
+# Check how many SNPS total
 
 wc -l beastfiltered*
 24560
@@ -1080,7 +1090,7 @@ wc -l beastfiltered*
 Needed to regenerate the SNP information from SNPs.sh. Still used my origional filtered set from round 1
 where filtered the vcf file with GATK version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3
 
-Using VarFiltFork2.pl. 
+Using [VarFiltFork2.pl](VarFiltFork2.pl). 
 output was beastfilteredsnps_fff_o_lycpool_chrom_.txt
 allele depth files are taken care of from code up above. 
 
@@ -2687,15 +2697,10 @@ put into .xml file and run
 
 # An attempt at demographic inference
 
-Need to generate an allele frequency file from my allele depth files. 
-Do I want to try this with dadi and then feed that file into moments?
-Can I use dadi language in moments?
-
-
-
+Need to generate an allele frequency file from my allele depth files. Used both dadi and moments
 
 # Filtering GACT out
-need to redo everything after variant calling. Pipelne goes: alignment- remove pcr duplicates - map damage- variant calling- hard filtering 
+need to redo everything after variant calling. Pipelne goes: alignment- remove pcr duplicates - map damage- variant calling- hard filtering (These steps below should already be updated in scripts above). 
 
 Hard filtered with HardFilterGACT.sh
 ```sh
