@@ -57,7 +57,7 @@ Start here 11/19
 ##All bam and bai index files are in /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 # Indexing
 Indexed bam files using:
-Index.sh
+[Index.sh](Index.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
@@ -85,7 +85,7 @@ done
 ```
 # Filter ends for mapdamage
 Needed to Filter ends for mapdamage. Ran using:
-FilterFork.sh
+[FilterFork.sh](FilterFork.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=48:00:00
@@ -116,7 +116,7 @@ done
 tried using perl script but gave up. 
 
 # Ran MapDamage on all populations using 
-MapDamFork.pl
+[MapDamFork.pl](MapDamFork.pl)
 ```pl
 #!/usr/bin/perl
 #
@@ -140,7 +140,7 @@ foreach $file (@ARGV){
 $pm->wait_all_children;
 ```
 
-Run by SubMapDamFork.sh
+Run by [SubMapDamFork.sh](SubMapDamFork.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=240:00:00
@@ -162,7 +162,7 @@ perl MapDamFork.pl *bam
 ```
 # Softclipping
 Counted soft-clipped bases (from bwamem2) to make sure I wasn't losing critical data. 
-Submitted with SubCountSoftClipsA.sh
+Submitted with [SubCountSoftClipsA.sh](SubCountSoftClipsA.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=72:00:00
@@ -180,7 +180,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 perl CountSoftClipsA.pl filenamehere*.sam
 ```
-Which ran: CountSoftClip.pl
+Which ran: [CountSoftClip.pl](CountSoftClip.pl)
 ```pl
 #!/usr/bin/perl
 #
@@ -224,7 +224,7 @@ close(IN);
 ```
 # Read length filter
 To reduce noise in mapdamage, kept only the reads of at least 50bp with:
-SubFilterFork.sh
+[SubFilterFork.sh](SubFilterFork.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=24:00:00
@@ -242,7 +242,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 perl /scratch/general/nfs1/u6000989/LycLotisBams/FilterFork.pl dedup_*.bam
 ```
-Which ran: FilterFork.pl
+Which ran: [FilterFork.pl](FilterFork.pl)
 ```pl
 #!/usr/bin/perl
 #
@@ -271,7 +271,7 @@ Also have FilterFork.sh from previous run. Ran mapdamage again just to check tha
  # Variant Calling
  Ran variant calling on all bams, all 27 populations using bcftools (version 1.16), mpilup and call, with each of the 23 chroms run seperately (each chrom*list file holds the scaffold name for one chromosome). Note: chromlist is a series of empty files that will serve as the scaffold names for all the chromosomes for all populations. For example, chrom10.list file says Scaffold_1639;HRSCAF_2219 inside 
 chrom1.list-chrom23.list
-Submitted with:SubVariantCall.sh
+Submitted with:[SubVariantCall.sh](SubVariantCall.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=13:00:00
@@ -292,7 +292,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VariantCall.pl chrom*list
 ```
 
-Which ran: VariantCall.pl
+Which ran: [VariantCall.pl](VariantCall.pl)
 ```pl
 #!/usr/bin/perl
 #
@@ -320,7 +320,7 @@ output: o_lycpool_chrom*.vcf
 
 # Filtered the vcf file with GATK 
 version (4.1.4.1), keeping only those with mapping quality > 30, depth > 1350 and bias scores less than +- 3.
-Submitted by SubVarFiltFork2.sh:
+Submitted by [SubVarFiltFork2.sh](SubVarFiltFork2.sh):
 ```sh
 #!/bin/sh
 #SBATCH --time=72:00:00
@@ -341,7 +341,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 
 perl /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/VarFiltFork2.pl *.vcf.gz
 ```
-Which ran: VarFiltFork2.pl
+Which ran: [VarFiltFork2.pl](VarFiltFork2.pl)
 ```pl
 #!/usr/bin/perl
 #
@@ -383,7 +383,7 @@ output: fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi
 
 # Allele depth and SNP
 Allele depth and snp information was pulled from these files (fff_o_lycpool_chrom10.vcf and fff_o_lycpool_chrom10.vcf.gz.tbi). This creates allele depth files for each allele (ad1* and ad2*) and chromosome, which I can use for downstream analyses.
-Used: AD.sh
+Used: [AD.sh](AD.sh)
 ```sh
 #!/usr/bin/bash
 #
@@ -403,7 +403,7 @@ output: ad1_fff_o_lycpool_chrom*.txt and ad2_fff_o_lycpool_chrom*.txt for each c
 
 
 I also grapped the SNP information (alleles) using:
-SNP.sh
+[SNP.sh](SNP.sh)
 ```sh
 #!/usr/bin/bash
 #
@@ -422,7 +422,7 @@ output: snps_fff_o_lycpool_chrom*.txt
 
 # Post mortem damage filtering on SNPs
 Deamination in museum samples turns C->T and G->A, making them look like real snps. Removed every snp with this mutation, from GATK filtered vcfs with bcftools filter
-Submitted with HardFilterGACT.sh
+Submitted with [HardFilterGACT.sh](HardFilterGACT.sh)
 ```sh
 #!/bin/sh
 #SBATCH --time=48:00:00
@@ -442,7 +442,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 perl FilterGACT.pl fff_o_lycpool_chrom1.vcf
 ```
 (From here on out, everything is in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT)
-Which ran: FilterGACT.pl 
+Which ran: [FilterGACT.pl](FilterGACT.pl) 
 ```pl
 #!/usr/bin/perl
 #
@@ -485,7 +485,7 @@ BAT49 had the lowest coverage, while TBY51 had the next lowest. Decided to cut b
 
 # Compute the invariant sites
 Invariant site counts are used in the beast .xml file. Reads in base counts (A, C, G, T) by scaffold from the genome. For now, using Zach's invariant site counts. 
-Calculate with: ComputeInvariant.R 
+Calculate with: [ComputeInvariant.R](ComputeInvariant.R) 
 get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
 cnts<-read.table("baseCounts.txt",header=FALSE)
 or run in R
@@ -532,7 +532,7 @@ output: gact_max_chrom
 
 # Input files for BEAST 
 Generated with:
-mkBeastDat.R
+[mkBeastDat.R](mkBeastDat.R)
 ```r
 library(data.table)
 
@@ -585,7 +585,7 @@ for round 2 output is max_chromad1V2_fff_o_lycpool_chrom*.fasta  . the output he
 Did not need to use SubAlign.pl to drop rep pop samples
 
 ## Used mkNumericFasta.pl to convert alignments to numeric 
-mkNumericFasta.pl
+[mkNumericFasta.pl](mkNumericFasta.pl)
 ```pl
 #!/usr/bin/perl
 
@@ -608,7 +608,7 @@ output is now numeric
 
 # Filter snps
 Used GetSNPSubstMax.R to generate a filtered and reduced set of SNPs. This needed to be found in Zachs directory /uufs/chpc.utah.edu/common/home/gompert-group5/projects/LycAdmix/Beast
-GetSNPSubstMax.R
+[GetSNPSubstMax.R](GetSNPSubsetMax.R)
 ```r
 ##identify SNPs from the alignments that are variable in the alignment
 ##subsample these
@@ -638,7 +638,7 @@ save(list=ls(),file="snps_max.rdat")
 output: snps_max.rdat AND keepSNPS_max_chrom*
 Then created combined across chromosomes fasta alignment filent file with just subset of SNPs with SubSetFasta.pl and converted to .nex file for beauti
 
-SubSetFasta.pl
+[SubSetFasta.pl](SubSetFasta.pl)
 ```pl
 
 #!/usr/bin/perl
@@ -748,7 +748,7 @@ Also, in the .xml file, need to put the invariant site counts. For now I'm using
 Be sure to change file name too. 
 current version saved as: lyc_wgs_PEQG_test_edit or _test_2.xml. The .xml is checked with beast-validate, and six independent runs are submitted. Each chain gets its own seed and output files are prefixed ch1 to ch6. 
 
-I combine runs using logcombiner 
+I combine runs using logcombiner. Used 
 ```sh
 #!/bin/bash
 #SBATCH --time=12:00:00
@@ -779,7 +779,7 @@ loganalyser final_combined_${RUN}.log > final_combined_${RUN}_ESS.txt
 treeannotator -burnin 0 -heights median \
   final_combined_${RUN}.trees mctree_${RUN}.tre
 ```
-
+Outputs: from many runs, all starting with logcombiner_*
 # Treemix here?
 
 
@@ -800,7 +800,7 @@ Which runs:
 ```bash
 caster-site -i wholegenome_noBAT49_noTBY51.fasta -o cout_wholegenome_noBAT49_noTBY51 --root Lyc-MEN12 --thread 24
 ```
-Also used RunCasterSite.pl 
+Also used [RunCasterSite.pl](RunCasterSite.pl) 
 ```pl
 #!/usr/bin/perl
 #
@@ -891,7 +891,7 @@ For each set of 4 taxa (A, B, C and outgroup) I compute scores in 10 snps window
 normalized (sum to 1) scores across the genome. I have one sub-directory for each set of taxa (winAxBxCxD). The basic commands look like this (executed from 
 within the sub-directory with a mapping file, Sub* file and symbolic links to the sub_max* alignments)
 Each quartest is one command, run from Caster/ directory that holds symbolic links to gact_max_chrom*.fasta alignments (whole genome). 
-Each quartet was run with run_quartest.slurm:
+Each quartet was run with [run_quartets.slurm](run_quartets.slurm):
 ```
 #!/bin/bash
 #SBATCH --job-name=casterwin
@@ -934,7 +934,7 @@ n=$(grep -c '^>' "Sub${Q}_${ALN_PREFIX}1.fasta")
 perl ../RunWindows.pl "$Q" "$WINBIN" "$ALN_PREFIX"
 echo "Done: ${CASTER_DIR}/win${Q}"
 ```
-Which ran RunWindows.pl
+Which ran [RunWindows.pl](RunWindows.pl)
 ```pl
 #!/usr/bin/perl
 # Zach's RunWindows.pl with quartet tag, binary and prefix as arguments
@@ -954,7 +954,7 @@ sbatch run_quartet.slurm Lyc-LOTIS Lyc-SHC11 Lyc-MR20 Lyc-MEN12 <--- example of 
 cd winLOTISxSHC11xMR20 <- the output directory you need to run WinTest.R from
 Rscript ../WinTest.R
 ```
-WinTest.R:
+[WinTest.R](WinTest.R):
 ```r
 ## Zach's WinTest.R logic: average 5 consecutive windows, normalize the
 ## three topology scores to sum to 1, genome-wide means, stacked barplot.
