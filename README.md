@@ -163,7 +163,7 @@ perl MapDamFork.pl *bam
 # Softclipping
 Counted soft-clipped bases (from bwamem2) to make sure I wasn't losing critical data. 
 Submitted with SubCountSoftClipsA.sh
-```
+```sh
 #!/bin/sh
 #SBATCH --time=72:00:00
 #SBATCH --nodes=1
@@ -181,7 +181,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 perl CountSoftClipsA.pl filenamehere*.sam
 ```
 Which ran: CountSoftClip.pl
-```
+```pl
 #!/usr/bin/perl
 #
 # counts the total number of soft-clipped bases in a sam file
@@ -225,7 +225,7 @@ close(IN);
 # Read length filter
 To reduce noise in mapdamage, kept only the reads of at least 50bp with:
 SubFilterFork.sh
-```
+```sh
 #!/bin/sh
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
@@ -243,7 +243,7 @@ cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis
 perl /scratch/general/nfs1/u6000989/LycLotisBams/FilterFork.pl dedup_*.bam
 ```
 Which ran: FilterFork.pl
-```
+```pl
 #!/usr/bin/perl
 #
 # filter bam files to remove short sequences 
@@ -423,7 +423,7 @@ output: snps_fff_o_lycpool_chrom*.txt
 # Post mortem damage filtering on SNPs
 Deamination in museum samples turns C->T and G->A, making them look like real snps. Removed every snp with this mutation, from GATK filtered vcfs with bcftools filter
 Submitted with HardFilterGACT.sh
-```
+```sh
 #!/bin/sh
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
@@ -443,7 +443,7 @@ perl FilterGACT.pl fff_o_lycpool_chrom1.vcf
 ```
 (From here on out, everything is in: /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT)
 Which ran: FilterGACT.pl 
-```
+```pl
 #!/usr/bin/perl
 #
 # filter GA and CT mutations from vcf files
@@ -489,7 +489,7 @@ Calculate with: ComputeInvariant.R
 get this with: perl countBases.pl > baseCounts.txt, from /uufs/chpc.utah.edu/common/home/gompert-group3/data/LmelGenome/
 cnts<-read.table("baseCounts.txt",header=FALSE)
 or run in R
-```
+```R
 cnts <- read.table("baseCounts_filteredV2_noBAT49.txt", header=FALSE)
 
 totals <- apply(cnts[,-1], 1, sum)
@@ -522,7 +522,7 @@ Lotis has elevated F<sub>ST</sub>. Expected for small, low coverage museum pool 
 Estimated time-calibrated tree with BEAST (version 2.7.8) and coupled MCMC package. BEAST cannot handle whole genome data sets, so we need to subset the data. 
 	- Consensus alignments: Made consensus sequence for each population by taking the most common allele at each SNP from AD files. Inserted N where fewer than 5 reads were observed. Using the GA/CT filtered depth files, submitted [mkMaxFasta.R](mkMaxFasta.R) which writes gact_max_chrom{1..23}.fasta. This is the consensus. 
 Ran with:
-```
+```bash
 Rscript mkMaxFasta.R "^ad1_fff_o_lycpool_chrom[0-9.]+\\.filtered\\.txt$" gact_max_chrom IDs_vcf.txt
 ```
 (all samples, ~10 million snps)
@@ -692,7 +692,7 @@ In terminal: seqmagick convert --output-format nexus --alphabet dna lyc_genomema
 output: lyc_genomemax.fasta and .nexx
 
 # Beauti model parameters
-```
+```bash
 ml beast
 beauti
 ```
@@ -745,16 +745,62 @@ Also, in the .xml file, need to put the invariant site counts. For now I'm using
 <data id='lyc_genomemax' spec='FilteredAlignment' filter='-' data='@lyc_genomemaxOrig' constantSiteWeights='50190 28322 28284 50114'>
     </data>
 ```
-Be sure to change file name too
+Be sure to change file name too. 
+current version saved as: lyc_wgs_PEQG_test_edit or _test_2.xml. The .xml is checked with beast-validate, and six independent runs are submitted. Each chain gets its own seed and output files are prefixed ch1 to ch6. 
 
-# CASTER 
-For cASTER to work, run: ml gcc/13.3.0
+I combine runs using logcombiner 
+```sh
+#!/bin/bash
+#SBATCH --time=12:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=48G
+#SBATCH --account=gompert-np
+#SBATCH --partition=gompert-np
+#SBATCH --job-name=beastcons
+#SBATCH --output=beastcons_%j.out
+
+module load beast
+export _JAVA_OPTIONS="-Xmx44g"
+cd /uufs/chpc.utah.edu/common/home/u6047808/LycLotis/ZLycLotis/filtered_GACT
+
+RUN=lyc_wgs_PEQG_test2_edit
+TREE=lyc_genomemax_noBAT49_noTBY51
+
+logcombiner -b 20 -resample 5000 -o final_combined_${RUN}.log \
+  $(for i in 1 2 3 4 5 6; do echo -n "-log ch${i}_${RUN}.log "; done)
+
+logcombiner -b 20 -resample 20000 -o final_combined_${RUN}.trees \
+  $(for i in 1 2 3 4 5 6; do echo -n "-log ch${i}_${RUN}-${TREE}.trees "; done)
+
+loganalyser final_combined_${RUN}.log > final_combined_${RUN}_ESS.txt
+
+treeannotator -burnin 0 -heights median \
+  final_combined_${RUN}.trees mctree_${RUN}.tre
+```
+
+# Treemix here?
+
+
+# CASTER - Genome wide heterogeneity
+I used caster(version v1.20.2.5), specifically caster site to estimate species trees from full consensus alignments (gact_max_chrom*.fasta), with MEN as the root. Caster needs to be run on notchpeak nodes. For cASTER to work, run: 
+```
+ml gcc/13.3.0
+```
+While genome: caster_wholegenome.slurm checks the 23 alignments, concatenates them by sample name, and runs caster-site once joined alignment (10,267,366 sites). 
 Caster and Beast use same input file for mkBeastDat.R, so these already exist, but to be sure and to match with zachs, ran with sub_max instead of max
 
 output sub_max_chromad1_fff_o_lycpool_chrom*.fasta
 Zach also used SubAlign.pl here, but I do not need to because I have no replicate pops
-
-From here I am running RunCasterSite.pl 
+```
+sbatch caster_wholegenome.slurm gact_max_chrom noBAT49_noTBY51 Lyc-BAT49 Lyc-TBY51
+```
+Which runs:
+```bash
+caster-site -i wholegenome_noBAT49_noTBY51.fasta -o cout_wholegenome_noBAT49_noTBY51 --root Lyc-MEN12 --thread 24
+```
+Also used RunCasterSite.pl 
 ```pl
 #!/usr/bin/perl
 #
